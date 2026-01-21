@@ -4,6 +4,6 @@ import { AppscriptsService } from './appscripts.service';
 
 @Module({
   controllers: [AppscriptsController],
-  providers: [AppscriptsService]
+  providers: [AppscriptsService],
 })
 export class AppscriptsModule {}

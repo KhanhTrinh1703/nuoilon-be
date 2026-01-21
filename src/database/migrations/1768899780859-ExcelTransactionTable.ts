@@ -14,7 +14,7 @@ export class ExcelTransactionTable1768899780859 implements MigrationInterface {
           },
           {
             name: 'transactionDate',
-            type: 'timestamp',
+            type: 'date',
             isNullable: true,
           },
           {
@@ -28,7 +28,7 @@ export class ExcelTransactionTable1768899780859 implements MigrationInterface {
             name: 'numberOfFundCertificate',
             type: 'decimal',
             precision: 15,
-            scale: 4,
+            scale: 2,
             isNullable: true,
           },
           {

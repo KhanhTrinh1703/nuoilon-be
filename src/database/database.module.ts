@@ -15,6 +15,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         password: configService.get('database.password'),
         database: configService.get('database.database'),
         entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+        // entities: [__dirname + '/entities/*.entity{.ts,.js}'],
         synchronize: configService.get('database.synchronize'),
         logging: configService.get('database.logging'),
         migrations: configService.get('database.migrations'),

@@ -12,4 +12,7 @@ export default () => ({
     migrations: ['dist/database/migrations/**/*.js'],
     migrationsRun: process.env.DB_MIGRATIONS_RUN === 'true' || false,
   },
+  security: {
+    activeSecret: process.env.ACTIVE_SECRET,
+  },
 });

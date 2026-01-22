@@ -2,6 +2,17 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { setupSwaggerDocs } from '../src/config/swagger.config';
 
+/**
+ * Generate OpenAPI documentation files
+ *
+ * NOTE: This script requires a database connection because:
+ * - NestJS creates the full application context including all modules
+ * - Services have repository dependencies that are injected via TypeORM
+ * - The database connection is established but NOT actually used for doc generation
+ *
+ * The docs are generated purely from TypeScript metadata (decorators on
+ * controllers and DTOs), not from querying the database.
+ */
 async function generateDocs() {
   const app = await NestFactory.create(AppModule, {
     logger: false,

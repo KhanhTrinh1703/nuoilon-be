@@ -1,0 +1,27 @@
+{
+  "openapi": "3.0.0",
+  "paths": {},
+  "info": {
+    "title": "Nuoilon API - Web Client",
+    "description": "API documentation for Web applications",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "web",
+      "description": "Web client endpoints"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {}
+  }
+}

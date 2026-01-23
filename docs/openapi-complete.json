@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/": {
+    "/api": {
       "get": {
         "operationId": "AppController_getHello",
         "parameters": [],
@@ -15,10 +15,10 @@
         ]
       }
     },
-    "/appscripts/excel-transaction": {
+    "/api/v1/appscripts/excel-transaction": {
       "post": {
         "description": "Create or update an Excel transaction record. Requires HMAC signature authentication via X-Signature header.",
-        "operationId": "AppscriptsController_upsertExcelTransaction",
+        "operationId": "AppscriptsController_upsertExcelTransaction_v1",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -49,6 +49,24 @@
         "summary": "Upsert Excel Transaction",
         "tags": [
           "appscripts"
+        ]
+      }
+    },
+    "/api/v1/telegram/webhook": {
+      "post": {
+        "operationId": "TelegramController_handleWebhook_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Update processed successfully"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Telegram webhook endpoint",
+        "tags": [
+          "telegram"
         ]
       }
     }

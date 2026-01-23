@@ -1,6 +1,25 @@
 {
   "openapi": "3.0.0",
-  "paths": {},
+  "paths": {
+    "/api/v1/telegram/webhook": {
+      "post": {
+        "operationId": "TelegramController_handleWebhook_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Update processed successfully"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Telegram webhook endpoint",
+        "tags": [
+          "telegram"
+        ]
+      }
+    }
+  },
   "info": {
     "title": "Nuoilon API - Telegram Bot",
     "description": "API documentation for Telegram bot integration",

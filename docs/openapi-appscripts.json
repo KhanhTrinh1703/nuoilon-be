@@ -1,10 +1,10 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/appscripts/excel-transaction": {
+    "/api/v1/appscripts/excel-transaction": {
       "post": {
         "description": "Create or update an Excel transaction record. Requires HMAC signature authentication via X-Signature header.",
-        "operationId": "AppscriptsController_upsertExcelTransaction",
+        "operationId": "AppscriptsController_upsertExcelTransaction_v1",
         "parameters": [],
         "requestBody": {
           "required": true,

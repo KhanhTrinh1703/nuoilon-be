@@ -5,7 +5,6 @@ import { AppscriptsModule } from './appscripts/appscripts.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { WebModule } from './web/web.module';
 import { DatabaseModule } from './database/database.module';
-import { ScheduleModule } from './schedule/schedule.module';
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
 
@@ -19,7 +18,6 @@ import configuration from './config/configuration';
     TelegramModule,
     WebModule,
     DatabaseModule,
-    ScheduleModule,
   ],
   controllers: [AppController],
   providers: [AppService],

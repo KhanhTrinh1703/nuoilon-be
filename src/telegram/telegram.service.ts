@@ -25,9 +25,10 @@ export class TelegramService implements OnModuleInit {
       this.configService.get<string>('telegram.webhookUrl') ?? '';
 
     if (!this.botToken) {
-      throw new Error(
-        'TELEGRAM_BOT_TOKEN is not defined in environment variables',
+      this.logger.warn(
+        'TELEGRAM_BOT_TOKEN is not defined in environment variables. Telegram service will be unavailable.',
       );
+      return;
     }
 
     this.bot = new Telegraf(this.botToken);
@@ -35,6 +36,13 @@ export class TelegramService implements OnModuleInit {
   }
 
   async onModuleInit() {
+    if (!this.bot) {
+      this.logger.warn(
+        'Telegram bot is not initialized. Skipping webhook setup.',
+      );
+      return;
+    }
+
     if (this.webhookUrl) {
       await this.setWebhook();
     } else {

@@ -1,6 +1,9 @@
 export default () => ({
   port: parseInt(process.env.PORT ?? '3000', 10) || 3000,
   database: {
+    // Cloud connection (NeonDB) - takes priority if present
+    url: process.env.DATABASE_URL,
+    // Local development connection parameters
     type: process.env.DB_TYPE || 'postgres',
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT ?? '5432', 10) || 5432,

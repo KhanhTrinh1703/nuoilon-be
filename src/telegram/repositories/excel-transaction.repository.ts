@@ -14,12 +14,34 @@ export class ExcelTransactionRepository {
     const result = await this.repository
       .createQueryBuilder('transaction')
       .select('SUM(transaction.capital)', 'total')
-      .getRawOne();
+      .getRawOne<{ total: string }>();
 
-    return parseFloat(result.total) || 0;
+    return parseFloat(result?.total ?? '0') || 0;
   }
 
   async getTransactionCount(): Promise<number> {
     return this.repository.count();
+  }
+
+  async getTotalNumberOfFundCertificates(): Promise<number> {
+    const result = await this.repository
+      .createQueryBuilder('transaction')
+      .select('SUM(transaction.numberOfFundCertificate)', 'total')
+      .getRawOne<{ total: string }>();
+
+    return parseFloat(result?.total ?? '0') || 0;
+  }
+
+  async getDistinctMonthsCount(): Promise<number> {
+    const result = await this.repository
+      .createQueryBuilder('transaction')
+      .select(
+        "COUNT(DISTINCT(TO_CHAR(transaction.transactionDate, 'YYYY-MM')))",
+        'distinctMonths',
+      )
+      .where('transaction.transactionDate IS NOT NULL')
+      .getRawOne<{ distinctmonths: string }>();
+
+    return parseInt(result?.distinctmonths ?? '0') || 0;
   }
 }

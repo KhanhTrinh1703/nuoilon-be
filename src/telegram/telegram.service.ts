@@ -1,8 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Telegraf, Context } from 'telegraf';
 import { Update } from 'telegraf/types';
 import { ExcelTransactionRepository } from './repositories/excel-transaction.repository';
+import { FundPriceRepository } from '../schedule/repositories/fund-price.repository';
 
 @Injectable()
 export class TelegramService implements OnModuleInit {
@@ -14,12 +18,16 @@ export class TelegramService implements OnModuleInit {
   constructor(
     private readonly configService: ConfigService,
     private readonly excelTransactionRepository: ExcelTransactionRepository,
+    private readonly fundPriceRepository: FundPriceRepository,
   ) {
     this.botToken = this.configService.get<string>('telegram.botToken') ?? '';
-    this.webhookUrl = this.configService.get<string>('telegram.webhookUrl') ?? '';
+    this.webhookUrl =
+      this.configService.get<string>('telegram.webhookUrl') ?? '';
 
     if (!this.botToken) {
-      throw new Error('TELEGRAM_BOT_TOKEN is not defined in environment variables');
+      throw new Error(
+        'TELEGRAM_BOT_TOKEN is not defined in environment variables',
+      );
     }
 
     this.bot = new Telegraf(this.botToken);
@@ -30,14 +38,16 @@ export class TelegramService implements OnModuleInit {
     if (this.webhookUrl) {
       await this.setWebhook();
     } else {
-      this.logger.warn('TELEGRAM_WEBHOOK_URL is not set. Webhook not configured.');
+      this.logger.warn(
+        'TELEGRAM_WEBHOOK_URL is not set. Webhook not configured.',
+      );
     }
   }
 
   private setupCommands() {
     // /hi command
     this.bot.command('hi', (ctx: Context) => {
-      const firstName = ctx.from?.first_name || 'User';
+      // const firstName = ctx.from?.first_name || 'User';
       // ctx.reply(`Hello, ${firstName}!`);
       ctx.reply(`Chào mấy con gà, mấy con gà làm đếch gì biết về tài chính!`);
     });
@@ -45,17 +55,63 @@ export class TelegramService implements OnModuleInit {
     // /report command
     this.bot.command('reports', async (ctx: Context) => {
       try {
-        const totalCapital = await this.excelTransactionRepository.getTotalCapital();
-        const count = await this.excelTransactionRepository.getTransactionCount();
+        // Fetch all metrics
+        const investmentMonths =
+          await this.excelTransactionRepository.getDistinctMonthsCount();
+        const totalCapital =
+          await this.excelTransactionRepository.getTotalCapital();
+        const fundCertificates =
+          await this.excelTransactionRepository.getTotalNumberOfFundCertificates();
 
-        const message = `📊 Fund Report\n\n` +
-          `Total Capital: ${totalCapital.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
-          `Total Transactions: ${count}`;
+        // Fetch fund price
+        const fundPrice = await this.fundPriceRepository.findByName('E1VFVN30');
 
-        ctx.reply(message);
+        if (!fundPrice) {
+          ctx.reply(
+            '❌ Không tìm thấy giá quỹ E1VFVN30. Vui lòng thử lại sau.',
+          );
+          return;
+        }
+
+        // Calculate metrics
+        const navValue = Number(fundCertificates) * Number(fundPrice.price);
+        const profitLoss =
+          totalCapital > 0
+            ? ((navValue - totalCapital) / totalCapital) * 100
+            : 0;
+
+        // Format numbers with Vietnamese locale
+        const formatNumber = (num: number) =>
+          num.toLocaleString('vi-VN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+
+        // Format timestamp
+        const formatTimestamp = (date: Date) => {
+          return date.toLocaleString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          });
+        };
+
+        const message =
+          `📊 *BÁO CÁO QUỸ ĐẦU TƯ*\n\n` +
+          `- *Số tháng đầu tư:* ${investmentMonths}\n` +
+          `- *Tổng vốn đầu tư:* ${formatNumber(totalCapital)} VNĐ\n` +
+          `- *Số CCQ:* ${formatNumber(fundCertificates)}\n` +
+          `- *Giá CCQ:* ${formatNumber(Number(fundPrice.price))} VNĐ\n` +
+          `- *Giá trị NAV:* ${formatNumber(navValue)} VNĐ\n` +
+          `${profitLoss >= 0 ? '✅ *Lợi nhuận:*' : '❌ *Lỗ:*'} ${formatNumber(Math.abs(profitLoss))}%\n\n` +
+          `_Giá CCQ cập nhật lúc ${formatTimestamp(fundPrice.updatedAt)}_`;
+
+        ctx.reply(message, { parse_mode: 'Markdown' });
       } catch (error) {
         this.logger.error('Error generating report:', error);
-        ctx.reply('❌ Error generating report. Please try again later.');
+        ctx.reply('❌ Lỗi khi tạo báo cáo. Vui lòng thử lại sau.');
       }
     });
 
@@ -93,4 +149,3 @@ export class TelegramService implements OnModuleInit {
     return this.bot;
   }
 }
-

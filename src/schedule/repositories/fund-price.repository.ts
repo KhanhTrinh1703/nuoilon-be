@@ -18,4 +18,8 @@ export class FundPriceRepository extends Repository<FundPrice> {
 
     return this.save(this.create({ name, price }));
   }
+
+  async findByName(name: string): Promise<FundPrice | null> {
+    return this.findOne({ where: { name } });
+  }
 }

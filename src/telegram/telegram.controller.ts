@@ -16,7 +16,7 @@ export class TelegramController {
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async handleWebhook(@Body() update: Update) {
     this.logger.debug(`Received update: ${JSON.stringify(update)}`);
-    
+
     try {
       await this.telegramService.handleUpdate(update);
       return { success: true };
@@ -26,4 +26,3 @@ export class TelegramController {
     }
   }
 }
-

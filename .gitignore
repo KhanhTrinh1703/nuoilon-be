@@ -56,4 +56,7 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # API Documentation (generated files)
-# docs/openapi-*.json
+docs/openapi-*.json
+
+# Github Copilot
+.github/prompts/*

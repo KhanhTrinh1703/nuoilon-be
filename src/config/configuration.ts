@@ -18,4 +18,8 @@ export default () => ({
   security: {
     activeSecret: process.env.ACTIVE_SECRET,
   },
+  telegram: {
+    botToken: process.env.TELEGRAM_BOT_TOKEN,
+    webhookUrl: process.env.TELEGRAM_WEBHOOK_URL,
+  },
 });

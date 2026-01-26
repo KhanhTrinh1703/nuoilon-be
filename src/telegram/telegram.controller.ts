@@ -1,6 +1,28 @@
-import { Controller } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Controller, Post, Body, Logger } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { TelegramService } from './telegram.service';
+import type { Update } from 'telegraf/types';
 
 @ApiTags('telegram')
-@Controller('telegram')
-export class TelegramController {}
+@Controller({ path: 'telegram', version: '1' })
+export class TelegramController {
+  private readonly logger = new Logger(TelegramController.name);
+
+  constructor(private readonly telegramService: TelegramService) {}
+
+  @Post('webhook')
+  @ApiOperation({ summary: 'Telegram webhook endpoint' })
+  @ApiResponse({ status: 200, description: 'Update processed successfully' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async handleWebhook(@Body() update: Update) {
+    this.logger.debug(`Received update: ${JSON.stringify(update)}`);
+
+    try {
+      await this.telegramService.handleUpdate(update);
+      return { success: true };
+    } catch (error) {
+      this.logger.error('Error handling webhook:', error);
+      throw error;
+    }
+  }
+}

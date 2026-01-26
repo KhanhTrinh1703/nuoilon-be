@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { Telegraf, Context } from 'telegraf';
 import { Update } from 'telegraf/types';
 import { ExcelTransactionRepository } from './repositories/excel-transaction.repository';
-import { FundPriceRepository } from '../schedule/repositories/fund-price.repository';
+import { FundPriceRepository } from './repositories/fund-price.repository';
 
 @Injectable()
 export class TelegramService implements OnModuleInit {

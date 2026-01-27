@@ -84,7 +84,8 @@ export class TelegramService implements OnModuleInit {
         }
 
         // Calculate metrics
-        const navValue = Number(fundCertificates) * Number(fundPrice.price);
+        const navValue =
+          Number(fundCertificates) * Number(fundPrice.price) * 1000;
         const profitLoss =
           totalCapital > 0 ? (navValue / totalCapital - 1) * 100 : 0;
 
@@ -92,6 +93,11 @@ export class TelegramService implements OnModuleInit {
         const formatNumber = (num: number) =>
           num.toLocaleString('vi-VN', {
             maximumFractionDigits: 0,
+          });
+
+        const formatDecimalNumber = (num: number) =>
+          num.toLocaleString('vi-VN', {
+            maximumFractionDigits: 2,
           });
 
         // Format timestamp
@@ -113,7 +119,7 @@ export class TelegramService implements OnModuleInit {
           `- *Số CCQ:* ${formatNumber(fundCertificates)}\n` +
           `- *Giá CCQ:* ${formatNumber(Number(fundPrice.price) * 1000)} VNĐ\n` +
           `- *Giá trị NAV:* ${formatNumber(navValue)} VNĐ\n` +
-          `${profitLoss >= 0 ? '✅ *Lợi nhuận:*' : '❌ *Lỗ:*'} ${formatNumber(Math.abs(profitLoss))}%\n\n` +
+          `${profitLoss >= 0 ? '✅ *Lợi nhuận:*' : '❌ *Lỗ:*'} ${formatDecimalNumber(Math.abs(profitLoss))}%\n\n` +
           `_Giá CCQ cập nhật lúc ${formatTimestamp(fundPrice.updatedAt)}_`;
 
         ctx.reply(message, { parse_mode: 'Markdown' });

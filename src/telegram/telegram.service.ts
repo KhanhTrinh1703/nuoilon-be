@@ -84,7 +84,8 @@ export class TelegramService implements OnModuleInit {
         }
 
         // Calculate metrics
-        const navValue = Number(fundCertificates) * Number(fundPrice.price);
+        const navValue =
+          Number(fundCertificates) * Number(fundPrice.price) * 1000;
         const profitLoss =
           totalCapital > 0 ? (navValue / totalCapital - 1) * 100 : 0;
 

@@ -113,7 +113,7 @@ export class TelegramService implements OnModuleInit {
           `- *Số tháng đầu tư:* ${investmentMonths}\n` +
           `- *Tổng vốn đầu tư:* ${formatNumber(totalCapital)} VNĐ\n` +
           `- *Số CCQ:* ${formatNumber(fundCertificates)}\n` +
-          `- *Giá CCQ:* ${formatNumber(Number(fundPrice.price))} VNĐ\n` +
+          `- *Giá CCQ:* ${formatNumber(Number(fundPrice.price) * 1000)} VNĐ\n` +
           `- *Giá trị NAV:* ${formatNumber(navValue)} VNĐ\n` +
           `${profitLoss >= 0 ? '✅ *Lợi nhuận:*' : '❌ *Lỗ:*'} ${formatNumber(Math.abs(profitLoss))}%\n\n` +
           `_Giá CCQ cập nhật lúc ${formatTimestamp(fundPrice.updatedAt)}_`;

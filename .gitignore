@@ -60,3 +60,4 @@ docs/openapi-*.json
 
 # Github Copilot
 .github/prompts/*
+.vercel

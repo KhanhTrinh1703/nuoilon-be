@@ -40,8 +40,8 @@ export class ExcelTransactionRepository {
         'distinctMonths',
       )
       .where('transaction.transactionDate IS NOT NULL')
-      .getRawOne<{ distinctmonths: string }>();
+      .getRawOne<{ distinctMonths: string }>();
 
-    return parseInt(result?.distinctmonths ?? '0') || 0;
+    return parseInt(result?.distinctMonths ?? '0') || 0;
   }
 }

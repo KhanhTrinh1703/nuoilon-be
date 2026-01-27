@@ -25,74 +25,151 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-## Project setup
+## Nuoilon Backend
+
+## Overview
+Nuoilon is a multi-client NestJS 11 backend that tracks fund transactions and NAV, exposes client-specific APIs (Web, Telegram, Google AppScripts), and now supports sending Telegram photos directly to OneDrive via Microsoft Graph.
+
+## Features
+- Multi-client modules with isolated Swagger documentation for each surface.
+- Telegram bot commands `/hi`, `/reports`, `/upload` with localized responses.
+- `/upload` streams Telegram images to OneDrive, renames them to `{timestamp}_{telegramUserId}_{originalName}`, and enforces 20 uploads per user per day.
+- Repository-driven TypeORM data access writing to PostgreSQL/NeonDB.
+- Static OpenAPI export under `docs/` for sharing API references.
+- Configurable dual database mode (env switch between local params and `DATABASE_URL`).
+
+## Tech Stack
+- Node.js 20+, TypeScript 5.7
+- NestJS 11, Telegraf 4.16
+- TypeORM 0.3 + PostgreSQL/Neon
+- Microsoft Graph SDK + `@azure/identity`
+- Axios, class-validator/transformer
+- ESLint + Prettier + Jest
+
+## Getting Started
+1. Install dependencies:
 
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+2. Create a `.env` file from the sample and populate secrets:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+cp .env.example .env
 ```
 
-## Run tests
+3. Apply pending migrations (PostgreSQL must be reachable):
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run migration:run
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+4. Start the API in watch mode:
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run start:dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Required Environment Variables
 
-## Resources
+```
+PORT=3000
 
-Check out a few resources that may come in handy when working with NestJS:
+# Local database (omit when DATABASE_URL is set)
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DB_NAME=nuoilon
+DB_SYNCHRONIZE=false
+DB_LOGGING=true
+DB_MIGRATIONS_RUN=false
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# Cloud database (NeonDB)
+# DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
 
-## Support
+ACTIVE_SECRET=replace-me
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+TELEGRAM_BOT_TOKEN=bot-token-from-botfather
+TELEGRAM_WEBHOOK_URL=https://your-domain.com/api/v1/telegram/webhook
 
-## Stay in touch
+ONEDRIVE_CLIENT_ID=<azure-app-client-id>
+ONEDRIVE_CLIENT_SECRET=<azure-app-client-secret>
+ONEDRIVE_TENANT_ID=<azure-tenant-id>
+ONEDRIVE_USER_ID=<onedrive-email-or-user-id>
+ONEDRIVE_UPLOAD_FOLDER=BotUploads
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+`ONEDRIVE_UPLOAD_FOLDER` defaults to `BotUploads` and is created automatically if missing.
 
-## License
+## Database & Migrations
+- Keep `DB_SYNCHRONIZE=false` in all environments; rely on migrations only.
+- Generate migrations from entity changes:
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+```bash
+npm run migration:generate -- src/database/migrations/Name
+```
+
+- Run or revert migrations:
+
+```bash
+npm run migration:run
+npm run migration:revert
+```
+
+## Telegram Bot Workflow
+- `/hi`: playful greeting in Vietnamese.
+- `/reports`: aggregates monthly investment stats from `excel_transactions` plus the latest NAV from `fund_prices`, then posts a Markdown summary.
+- `/upload`: prompts for an image, validates MIME (`image/jpeg`, `image/png`, `image/gif`, `image/webp`), enforces 20 uploads per user per day, streams the highest-resolution Telegram photo to OneDrive, records the action in `upload_logs`, and replies with the OneDrive link.
+- Error messages surfaced to users:
+  - "You've reached your daily upload limit (20 files). Try again tomorrow."
+  - "Upload failed. Please try again later."
+
+## OneDrive Integration Checklist
+1. Register an Azure AD application that supports personal Microsoft accounts + organizational directories.
+2. Create a client secret and capture the **Application (client) ID**, **Directory (tenant) ID**, and secret value.
+3. Grant Microsoft Graph **Application** permission `Files.ReadWrite.All` and click **Grant admin consent**.
+4. Determine the OneDrive user by email or via Graph Explorer:
+
+```http
+GET https://graph.microsoft.com/v1.0/me
+```
+
+5. Populate the `ONEDRIVE_*` variables, restart the API, and watch the logs for successful OneDrive initialization.
+6. Verify uploads by sending `/upload` to the Telegram bot and checking the configured OneDrive folder.
+
+## Static Documentation
+- Generate JSON + HTML docs (requires database connectivity):
+
+```bash
+npm run docs:generate
+```
+
+- Serve the docs locally:
+
+```bash
+npm run docs:serve
+```
+
+Swagger endpoints:
+
+- `/api/docs/web`
+- `/api/docs/telegram`
+- `/api/docs/appscripts`
+- `/api/docs` (aggregate)
+
+## Testing & Quality Gates
+
+```bash
+npm run lint
+npm run typecheck
+npm run test
+npm run test:e2e
+```
+
+## Troubleshooting
+- **Webhook inactive**: ensure `TELEGRAM_WEBHOOK_URL` is HTTPS and reachable; run `npm run telegram:setup` if needed.
+- **OneDrive 401/403**: confirm the `Files.ReadWrite.All` permission has admin consent and the client secret is valid.
+- **Uploads rejected immediately**: check server time drift; rate limiting uses the server's local date boundaries.
+- **Docs generation fails**: verify the database connection string because `npm run docs:generate` boots the full NestJS context.

@@ -27,167 +27,76 @@ TELEGRAM_WEBHOOK_URL=https://your-domain.com/telegram/webhook
 ```
 
 **Important:**
-- `TELEGRAM_BOT_TOKEN`: Get this from BotFather when you create your bot
-- `TELEGRAM_WEBHOOK_URL`: Must be HTTPS and publicly accessible (e.g., https://yourdomain.com/telegram/webhook)
+# Telegram Bot Setup Guide
 
-### 2. Setting Up the Webhook
+This guide walks through configuring the Telegram webhook bot, enabling OneDrive uploads, and validating the `/upload` workflow end-to-end.
 
-When the application starts, it will automatically set the webhook URL with Telegram. The webhook endpoint is:
+## Prerequisites
+- Node.js 20+
+- PostgreSQL database (local or NeonDB)
+- Telegram bot created via [@BotFather](https://t.me/botfather)
+- Public HTTPS endpoint (ngrok/localtunnel) for webhook testing
+- Azure AD application with Microsoft Graph `Files.ReadWrite.All` application permission
 
-```
-POST /telegram/webhook
-```
+## Environment Variables
 
-### 3. Testing Locally
-
-For local development, you can use tools like:
-- [ngrok](https://ngrok.com/) - Create a public HTTPS tunnel
-- [localtunnel](https://localtunnel.github.io/www/) - Alternative tunneling service
-
-Example with ngrok:
 ```bash
-# Start ngrok
-ngrok http 3000
+TELEGRAM_BOT_TOKEN=your-bot-token-from-botfather
+TELEGRAM_WEBHOOK_URL=https://your-domain.com/api/v1/telegram/webhook
 
-# Use the HTTPS URL from ngrok as your TELEGRAM_WEBHOOK_URL
-# Example: https://abc123.ngrok.io/telegram/webhook
+ONEDRIVE_CLIENT_ID=<azure-app-client-id>
+ONEDRIVE_CLIENT_SECRET=<azure-app-client-secret>
+ONEDRIVE_TENANT_ID=<azure-tenant-id>
+ONEDRIVE_USER_ID=<onedrive-email-or-user-id>
+ONEDRIVE_UPLOAD_FOLDER=BotUploads
 ```
 
-## Bot Commands
+`ONEDRIVE_UPLOAD_FOLDER` defaults to `BotUploads` and is created automatically if missing.
 
-The bot supports the following commands:
+## OneDrive & Azure Setup
+1. Go to [Azure Portal](https://portal.azure.com) → Azure Active Directory → App registrations → **New registration**. Allow both organizational and personal Microsoft accounts.
+2. After creation, capture the **Application (client) ID** and **Directory (tenant) ID**.
+3. Under **Certificates & secrets**, create a new client secret and copy its **Value** (shows once).
+4. Navigate to **API permissions** → **Add a permission** → **Microsoft Graph** → **Application permissions** → add `Files.ReadWrite.All`. Click **Grant admin consent**.
+5. Determine the OneDrive user principal:
+   - Use the Microsoft account email, or
+   - Run `GET https://graph.microsoft.com/v1.0/me` in [Graph Explorer](https://developer.microsoft.com/en-us/graph/graph-explorer) and copy the `id`.
+6. Fill the `ONEDRIVE_*` variables, restart the NestJS app, and watch logs for the OneDrive initialization banner.
 
-### `/hi`
-Greets the user with their first name.
+## Webhook Registration
+- On startup, `TelegramService` calls `setWebhook` when `TELEGRAM_WEBHOOK_URL` is populated.
+- To verify:
 
-**Example:**
-```
-User: /hi
-Bot: Hello, John!
-```
-
-### `/report`
-Shows fund report with total capital and transaction count from the database.
-
-**Example:**
-```
-User: /report
-Bot: 📊 Fund Report
-
-Total Capital: 1,250,000.00
-Total Transactions: 45
-```
-
-### `/upload`
-Prompts user to upload a file (functionality to be implemented).
-
-**Example:**
-```
-User: /upload
-Bot: Please upload your file.
-```
-
-## Architecture
-
-### Files Structure
-
-```
-src/telegram/
-├── telegram.module.ts              # Module configuration
-├── telegram.controller.ts          # Webhook endpoint handler
-├── telegram.service.ts             # Bot logic and commands
-└── repositories/
-    └── excel-transaction.repository.ts  # Database queries
-```
-
-### How It Works
-
-1. **Webhook Registration**: When the app starts, `TelegramService` registers the webhook URL with Telegram
-2. **Receiving Updates**: Telegram sends updates to `/telegram/webhook` endpoint
-3. **Processing Updates**: `TelegramController` receives the update and passes it to `TelegramService`
-4. **Command Handling**: `TelegramService` processes commands and responds accordingly
-
-## Development
-
-### Adding New Commands
-
-Edit `src/telegram/telegram.service.ts` and add new command handlers in the `setupCommands()` method:
-
-```typescript
-this.bot.command('yourcommand', async (ctx: Context) => {
-  // Your command logic here
-  ctx.reply('Your response');
-});
-```
-
-### Database Queries
-
-Add new queries to `ExcelTransactionRepository` as needed:
-
-```typescript
-async yourNewQuery(): Promise<any> {
-  return this.repository
-    .createQueryBuilder('transaction')
-    // Your query logic
-    .getMany();
-}
-```
-
-## Troubleshooting
-
-### Webhook Not Working
-
-1. **Check if webhook is set correctly:**
 ```bash
 curl https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo
 ```
 
-2. **Check application logs** for webhook setup errors
-
-3. **Verify HTTPS**: Telegram requires HTTPS for webhooks (not HTTP)
-
-### Bot Not Responding
-
-1. Check if `TELEGRAM_BOT_TOKEN` is correct
-2. Verify the webhook URL is accessible from the internet
-3. Check application logs for errors
-4. Ensure database is running and accessible
-
-### Manual Webhook Setup
-
-If automatic setup fails, you can manually set the webhook:
+- Manual setup fallback:
 
 ```bash
 curl -X POST https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://your-domain.com/telegram/webhook"}'
+  -d '{"url": "https://your-domain.com/api/v1/telegram/webhook"}'
 ```
 
-## Security Considerations
+## Commands
 
-1. **Never commit** your `.env` file with real credentials
-2. **Use HTTPS** for webhook URL (required by Telegram)
-3. Consider adding **webhook validation** to ensure requests are from Telegram
-4. **Rate limiting** should be implemented in production
+| Command | Description |
+|---------|-------------|
+| `/hi` | Sends a playful greeting. |
+| `/reports` | Aggregates investment metrics (months, capital, CCQ, NAV) and returns a localized Markdown summary. |
+| `/upload` | Prompts for an image (JPG/PNG/GIF/WebP), enforces 20 uploads per user per day, pushes the photo to OneDrive, logs the upload, and replies with the OneDrive link. |
 
-## Production Deployment
+## `/upload` Flow
+1. User sends `/upload`.
+2. Bot responds with instructions and waits for a `photo` update.
+3. Highest-resolution photo variant is downloaded via `ctx.telegram.getFileLink`.
+4. MIME type is validated (`image/jpeg`, `image/png`, `image/gif`, `image/webp`).
+5. Filename becomes `{timestamp}_{telegramUserId}_{originalName}`.
+6. `OneDriveService` uploads using Microsoft Graph (simple upload ≤4 MB, resumable upload otherwise).
+7. Entry saved to `upload_logs` with Telegram IDs, names, MIME, size, and OneDrive URL.
+8. Bot replies with success + OneDrive link.
+9. Failures surface descriptive errors (daily limit exceeded, invalid MIME, download failure, OneDrive failure).
 
-1. Ensure your domain has a valid SSL certificate
-2. Set environment variables in your hosting platform
-3. The webhook will be automatically configured on application start
-4. Monitor logs for any webhook-related errors
+## Rate Limiting & Audit Trail
 
-## References
-
-- [Telegraf Documentation](https://telegraf.js.org/)
-- [Telegram Bot API](https://core.telegram.org/bots/api)
-- [Telegram Webhooks Guide](https://core.telegram.org/bots/webhooks)
-
-## Future Enhancements
-
-- [ ] Implement file upload handling for `/upload` command
-- [ ] Add more detailed calculations for `/report` command
-- [ ] Add user authentication
-- [ ] Implement webhook signature verification
-- [ ] Add rate limiting
-- [ ] Add command /start with welcome message

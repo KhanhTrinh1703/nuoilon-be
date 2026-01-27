@@ -42,7 +42,11 @@ export class TelegramService implements OnModuleInit {
     }
 
     if (this.webhookUrl) {
-      await this.setWebhook();
+      try {
+        await this.setWebhook();
+      } catch (error) {
+        this.logger.error('Error setting up webhook on module init:', error);
+      }
     } else {
       this.logger.warn(
         'TELEGRAM_WEBHOOK_URL is not set. Webhook not configured.',

@@ -86,15 +86,12 @@ export class TelegramService implements OnModuleInit {
         // Calculate metrics
         const navValue = Number(fundCertificates) * Number(fundPrice.price);
         const profitLoss =
-          totalCapital > 0
-            ? ((navValue - totalCapital) / totalCapital) * 100
-            : 0;
+          totalCapital > 0 ? (navValue / totalCapital - 1) * 100 : 0;
 
         // Format numbers with Vietnamese locale
         const formatNumber = (num: number) =>
           num.toLocaleString('vi-VN', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            maximumFractionDigits: 0,
           });
 
         // Format timestamp
@@ -105,6 +102,7 @@ export class TelegramService implements OnModuleInit {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
+            timeZone: 'Asia/Ho_Chi_Minh',
           });
         };
 

@@ -2,7 +2,9 @@ name: Fund Price Crawler
 
 on:
   schedule:
-    - cron: '25 5 * * *' # Runs at 2:15 AM, 6:15 AM, 8:15 AM UTC = 9:15 AM, 1:15 PM, 3:15 PM Vietnam (UTC+7)
+    # Runs at 2:15 AM, 6:15 AM, 8:15 AM UTC
+    # = 9:15 AM, 1:15 PM, 3:15 PM Vietnam (UTC+7)
+    - cron: '15 2,6,8 * * *'
   workflow_dispatch: # Allows manual trigger
 
 jobs:

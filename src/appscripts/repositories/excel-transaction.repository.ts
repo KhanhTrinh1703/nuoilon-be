@@ -11,7 +11,7 @@ export class ExcelTransactionRepository {
   ) {}
 
   async upsertTransaction(data: {
-    transactionDate?: Date;
+    transactionDate?: string;
     capital?: number;
     numberOfFundCertificate?: number;
     transactionId: string;

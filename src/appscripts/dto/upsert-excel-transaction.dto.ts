@@ -1,15 +1,25 @@
-import { IsDateString, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpsertExcelTransactionDto {
   @ApiPropertyOptional({
-    description: 'Transaction date in ISO 8601 format',
-    example: '2024-01-22T00:00:00.000Z',
+    description: 'Transaction date string (date only, no time/timezone)',
+    example: '22/01/2024',
   })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   transactionDate?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Date format using date-fns format tokens (e.g., dd/MM/yyyy, yyyy/MM/dd, dd-MM-yyyy)',
+    example: 'dd/MM/yyyy',
+    default: 'dd/MM/yyyy',
+  })
+  @IsOptional()
+  @IsString()
+  dateFormat?: string = 'dd/MM/yyyy';
 
   @ApiPropertyOptional({
     description: 'Capital amount for the transaction',

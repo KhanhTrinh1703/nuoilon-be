@@ -22,7 +22,10 @@ export class AppscriptsService {
     return await this.excelTransactionRepository.upsertTransaction(data);
   }
 
-  private parseDateString(dateStr: string, formatStr: string = 'dd/MM/yyyy'): string {
+  private parseDateString(
+    dateStr: string,
+    formatStr: string = 'dd/MM/yyyy',
+  ): string {
     // Parse input date string using provided format
     const parsedDate = parse(dateStr, formatStr, new Date());
     // Return as ISO date string (YYYY-MM-DD) suitable for database insertion

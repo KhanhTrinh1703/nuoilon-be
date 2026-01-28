@@ -12,7 +12,8 @@ export class UpsertExcelTransactionDto {
   transactionDate?: string;
 
   @ApiPropertyOptional({
-    description: 'Date format using date-fns format tokens (e.g., dd/MM/yyyy, yyyy/MM/dd, dd-MM-yyyy)',
+    description:
+      'Date format using date-fns format tokens (e.g., dd/MM/yyyy, yyyy/MM/dd, dd-MM-yyyy)',
     example: 'dd/MM/yyyy',
     default: 'dd/MM/yyyy',
   })

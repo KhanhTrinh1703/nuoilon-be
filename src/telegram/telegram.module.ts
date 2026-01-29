@@ -9,7 +9,7 @@ import { UploadLog } from '../database/entities/upload-log.entity';
 import { ExcelTransactionRepository } from './repositories/excel-transaction.repository';
 import { FundPriceRepository } from './repositories/fund-price.repository';
 import { UploadLogRepository } from './repositories/upload-log.repository';
-import { FirebaseStorageService } from './services/firebase-storage.service';
+import { SupabaseStorageService } from './services/supabase-storage.service';
 
 @Module({
   imports: [
@@ -22,7 +22,7 @@ import { FirebaseStorageService } from './services/firebase-storage.service';
     ExcelTransactionRepository,
     FundPriceRepository,
     UploadLogRepository,
-    FirebaseStorageService,
+    SupabaseStorageService,
   ],
 })
 export class TelegramModule {}

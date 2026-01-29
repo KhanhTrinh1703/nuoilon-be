@@ -27,4 +27,10 @@ export default () => ({
     storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
     uploadFolder: process.env.FIREBASE_UPLOAD_FOLDER || 'telegram-uploads',
   },
+  supabase: {
+    url: process.env.SUPABASE_URL,
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    storageBucket: process.env.SUPABASE_STORAGE_BUCKET,
+    uploadFolder: process.env.SUPABASE_UPLOAD_FOLDER || 'images',
+  },
 });

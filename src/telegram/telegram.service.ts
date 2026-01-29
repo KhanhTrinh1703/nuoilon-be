@@ -8,7 +8,7 @@ import { message } from 'telegraf/filters';
 import { Update } from 'telegraf/types';
 import { ExcelTransactionRepository } from './repositories/excel-transaction.repository';
 import { FundPriceRepository } from './repositories/fund-price.repository';
-import { FirebaseStorageService } from './services/firebase-storage.service';
+import { SupabaseStorageService } from './services/supabase-storage.service';
 import { UploadLogRepository } from './repositories/upload-log.repository';
 
 @Injectable()
@@ -24,7 +24,7 @@ export class TelegramService implements OnModuleInit {
     private readonly configService: ConfigService,
     private readonly excelTransactionRepository: ExcelTransactionRepository,
     private readonly fundPriceRepository: FundPriceRepository,
-    private readonly firebaseStorageService: FirebaseStorageService,
+    private readonly supabaseStorageService: SupabaseStorageService,
     private readonly uploadLogRepository: UploadLogRepository,
   ) {
     this.botToken = this.configService.get<string>('telegram.botToken') ?? '';
@@ -137,7 +137,7 @@ export class TelegramService implements OnModuleInit {
       const userId = ctx.from?.id;
       if (!userId) return ctx.reply('Unable to identify user.');
       this.pendingUploads.add(userId);
-      ctx.reply('Vui lòng gửi hình ảnh để upload lên Firebase Storage.');
+      ctx.reply('Vui lòng gửi hình ảnh để upload lên Supabase Storage.');
     });
 
     this.bot.catch((err: any, ctx: Context) => {
@@ -198,8 +198,8 @@ export class TelegramService implements OnModuleInit {
         const ext = extname(fileLink.pathname || '') || '.jpg';
         const filename = `${Date.now()}_${userId}${ext}`;
 
-        // upload to Firebase Storage
-        const { webUrl } = await this.firebaseStorageService.uploadImage({
+        // upload to Supabase Storage
+        const { webUrl } = await this.supabaseStorageService.uploadImage({
           buffer,
           filename,
           mimeType,
@@ -240,6 +240,63 @@ export class TelegramService implements OnModuleInit {
       await this.bot.handleUpdate(update);
     } catch (error) {
       this.logger.error('Error handling update:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Upload image via REST API (for testing purposes)
+   * @param file - Multer file object from Express
+   * @param userId - Optional user ID for tracking (defaults to 'test-user')
+   * @param description - Optional description for the upload
+   */
+  async uploadImageViaRest(
+    file: Express.Multer.File,
+    userId?: string,
+    description?: string,
+  ): Promise<{ webUrl: string; uploadLog: any }> {
+    try {
+      const effectiveUserId = userId || 'test-user';
+      const buffer = file.buffer;
+      const mimeType = file.mimetype;
+      const filename = file.originalname || `upload_${Date.now()}.jpg`;
+
+      // Upload to Supabase Storage
+      const { webUrl } = await this.supabaseStorageService.uploadImage({
+        buffer,
+        filename,
+        mimeType,
+        fileSize: buffer.length,
+      });
+
+      // Create upload log
+      const uploadLog = await this.uploadLogRepository.createUploadLog({
+        telegramUserId: effectiveUserId,
+        telegramMessageId: `rest_${Date.now()}`,
+        originalName: filename,
+        mimeType,
+        fileSize: buffer.length,
+        storageUrl: webUrl,
+      });
+
+      this.logger.log(
+        `REST API upload successful for user ${effectiveUserId}: ${webUrl}`,
+      );
+
+      return {
+        webUrl,
+        uploadLog: {
+          id: uploadLog.id,
+          userId: effectiveUserId,
+          filename,
+          size: buffer.length,
+          url: webUrl,
+          description: description || null,
+          uploadedAt: uploadLog.uploadedAt,
+        },
+      };
+    } catch (error) {
+      this.logger.error('REST API upload failed:', error);
       throw error;
     }
   }

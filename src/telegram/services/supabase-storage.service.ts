@@ -1,6 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseClient, createClient } from '@supabase/supabase-js';
+import { extname } from 'path';
+import {
+  IMAGE_FILE_ALLOWED_EXTENSIONS,
+  IMAGE_FILE_ALLOWED_MIME_TYPES,
+  IMAGE_FILE_MAX_SIZE_BYTES,
+  IMAGE_FILE_SIZE_ERROR_MESSAGE,
+  IMAGE_FILE_TYPE_ERROR_MESSAGE,
+} from '../../common/constants/file-upload.constants';
 
 interface UploadPayload {
   buffer: Buffer;
@@ -51,6 +59,9 @@ export class SupabaseStorageService {
       this.logger.error('Supabase Storage is not initialized');
       throw new Error('Storage not configured');
     }
+
+    // Validate payload before attempting upload
+    this.validateFilePayload(payload);
 
     const path = this.buildStoragePath(payload.filename);
 
@@ -108,6 +119,28 @@ export class SupabaseStorageService {
       .from(this.bucketName)
       .getPublicUrl(path);
     return data?.publicUrl ?? null;
+  }
+
+  private validateFilePayload(payload: UploadPayload): void {
+    if (payload.fileSize > IMAGE_FILE_MAX_SIZE_BYTES) {
+      throw new BadRequestException(IMAGE_FILE_SIZE_ERROR_MESSAGE);
+    }
+
+    const normalizedMimeType = payload.mimeType?.toLowerCase() ?? '';
+    if (
+      !normalizedMimeType ||
+      !IMAGE_FILE_ALLOWED_MIME_TYPES.includes(normalizedMimeType)
+    ) {
+      throw new BadRequestException(IMAGE_FILE_TYPE_ERROR_MESSAGE);
+    }
+
+    const normalizedExtension = extname(payload.filename ?? '').toLowerCase();
+    if (
+      !normalizedExtension ||
+      !IMAGE_FILE_ALLOWED_EXTENSIONS.includes(normalizedExtension)
+    ) {
+      throw new BadRequestException(IMAGE_FILE_TYPE_ERROR_MESSAGE);
+    }
   }
 
   private async createSignedUrl(path: string): Promise<string | null> {

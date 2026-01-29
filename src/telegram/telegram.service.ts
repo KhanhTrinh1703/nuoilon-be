@@ -1,7 +1,12 @@
 /* eslint-disable @typescript-eslint/no-floating-promises, @typescript-eslint/no-unsafe-assignment */
 import axios from 'axios';
 import { extname } from 'path';
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  BadRequestException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Telegraf, Context } from 'telegraf';
 import { message } from 'telegraf/filters';
@@ -216,11 +221,17 @@ export class TelegramService implements OnModuleInit {
           storageUrl: webUrl,
         });
 
-        ctx.reply(`Upload successful: ${webUrl}`);
+        ctx.reply(`Upload successful: ${filename}`);
         this.pendingUploads.delete(userId);
       } catch (err) {
         this.logger.error('Photo upload failed', err);
-        ctx.reply('Upload failed. Please try again later.');
+        if (err instanceof BadRequestException) {
+          // Surface validation message to user
+          const msg = err.message || 'Invalid file';
+          ctx.reply(`❌ File validation failed: ${msg}`);
+        } else {
+          ctx.reply('Upload failed. Please try again later.');
+        }
       }
     });
   }

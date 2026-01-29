@@ -7,6 +7,9 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -18,8 +21,13 @@ import {
 } from '@nestjs/swagger';
 import { TelegramService } from './telegram.service';
 import { TelegramEnabledGuard } from '../common/guards/telegram-enabled.guard';
+import { DisableInProductionGuard } from '../common/guards/disable-in-production.guard';
 import { UploadImageDto } from './dto/upload-image.dto';
 import type { Update } from 'telegraf/types';
+import {
+  IMAGE_FILE_ALLOWED_MIME_TYPES,
+  IMAGE_FILE_MAX_SIZE_BYTES,
+} from '../common/constants/file-upload.constants';
 
 @ApiTags('telegram')
 @Controller({ path: 'telegram', version: '1' })
@@ -48,6 +56,7 @@ export class TelegramController {
 
   @Post('upload-image')
   @UseInterceptors(FileInterceptor('file'))
+  @UseGuards(DisableInProductionGuard)
   @ApiOperation({
     summary: 'Test image upload endpoint',
     description:
@@ -84,11 +93,24 @@ export class TelegramController {
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'No file uploaded' })
+  @ApiResponse({ status: 400, description: 'Missing or invalid image file' })
   @ApiResponse({ status: 500, description: 'Upload failed' })
   @ApiResponse({ status: 503, description: 'Telegram service is unavailable' })
   async uploadImage(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: IMAGE_FILE_MAX_SIZE_BYTES }),
+          new FileTypeValidator({
+            fileType: new RegExp(
+              `^(${IMAGE_FILE_ALLOWED_MIME_TYPES.map((t) => t.replace('/', '\\/')).join('|')})$`,
+              'i',
+            ),
+          }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
     @Body() dto: UploadImageDto,
   ) {
     this.logger.debug(

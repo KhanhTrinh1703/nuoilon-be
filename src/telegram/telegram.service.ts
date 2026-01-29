@@ -52,7 +52,11 @@ export class TelegramService implements OnModuleInit {
     }
 
     if (this.webhookUrl) {
-      await this.setWebhook();
+      try {
+        await this.setWebhook();
+      } catch (error) {
+        this.logger.error('Error setting up webhook on module init:', error);
+      }
     } else {
       this.logger.warn(
         'TELEGRAM_WEBHOOK_URL is not set. Webhook not configured.',
@@ -85,15 +89,19 @@ export class TelegramService implements OnModuleInit {
           return;
         }
 
-        const navValue = Number(fundCertificates) * Number(fundPrice.price);
+        // Calculate metrics
+        const navValue =
+          Number(fundCertificates) * Number(fundPrice.price) * 1000;
         const profitLoss =
-          totalCapital > 0
-            ? ((navValue - totalCapital) / totalCapital) * 100
-            : 0;
+          totalCapital > 0 ? (navValue / totalCapital - 1) * 100 : 0;
 
         const formatNumber = (num: number) =>
           num.toLocaleString('vi-VN', {
-            minimumFractionDigits: 2,
+            maximumFractionDigits: 0,
+          });
+
+        const formatDecimalNumber = (num: number) =>
+          num.toLocaleString('vi-VN', {
             maximumFractionDigits: 2,
           });
 
@@ -104,19 +112,18 @@ export class TelegramService implements OnModuleInit {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
+            timeZone: 'Asia/Ho_Chi_Minh',
           });
 
         const message =
-          `📊 *BÁO CÁO QUỸ ĐẦU TƯ` +
-          `\n\n- *Số tháng đầu tư:* ${investmentMonths}` +
-          `\n- *Tổng vốn đầu tư:* ${formatNumber(totalCapital)} VNĐ` +
-          `\n- *Số CCQ:* ${formatNumber(fundCertificates)}` +
-          `\n- *Giá CCQ:* ${formatNumber(Number(fundPrice.price))} VNĐ` +
-          `\n- *Giá trị NAV:* ${formatNumber(navValue)} VNĐ` +
-          `\n${profitLoss >= 0 ? '✅ *Lợi nhuận:*' : '❌ *Lỗ:*'} ${formatNumber(
-            Math.abs(profitLoss),
-          )}%` +
-          `\n\n_ Giá CCQ cập nhật lúc ${formatTimestamp(fundPrice.updatedAt)}_`;
+          `📊 *BÁO CÁO QUỸ ĐẦU TƯ*\n\n` +
+          `- *Số tháng đầu tư:* ${investmentMonths}\n` +
+          `- *Tổng vốn đầu tư:* ${formatNumber(totalCapital)} VNĐ\n` +
+          `- *Số CCQ:* ${formatNumber(fundCertificates)}\n` +
+          `- *Giá CCQ:* ${formatNumber(Number(fundPrice.price) * 1000)} VNĐ\n` +
+          `- *Giá trị NAV:* ${formatNumber(navValue)} VNĐ\n` +
+          `${profitLoss >= 0 ? '✅ *Lợi nhuận:*' : '❌ *Lỗ:*'} ${formatDecimalNumber(Math.abs(profitLoss))}%\n\n` +
+          `_Giá CCQ cập nhật lúc ${formatTimestamp(fundPrice.updatedAt)}_`;
 
         ctx.reply(message, { parse_mode: 'Markdown' });
       } catch (error) {

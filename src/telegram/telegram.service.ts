@@ -1,22 +1,36 @@
-/* eslint-disable @typescript-eslint/no-floating-promises */
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-floating-promises, @typescript-eslint/no-unsafe-assignment */
+import axios from 'axios';
+import { extname } from 'path';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  BadRequestException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Telegraf, Context } from 'telegraf';
+import { message } from 'telegraf/filters';
 import { Update } from 'telegraf/types';
 import { ExcelTransactionRepository } from './repositories/excel-transaction.repository';
 import { FundPriceRepository } from './repositories/fund-price.repository';
+import { SupabaseStorageService } from './services/supabase-storage.service';
+import { UploadLogRepository } from './repositories/upload-log.repository';
 
 @Injectable()
 export class TelegramService implements OnModuleInit {
+  private static readonly MAX_UPLOADS_PER_DAY = 20;
   private readonly logger = new Logger(TelegramService.name);
   private bot: Telegraf;
   private readonly botToken: string;
   private readonly webhookUrl: string;
+  private pendingUploads = new Set<number>();
 
   constructor(
     private readonly configService: ConfigService,
     private readonly excelTransactionRepository: ExcelTransactionRepository,
     private readonly fundPriceRepository: FundPriceRepository,
+    private readonly supabaseStorageService: SupabaseStorageService,
+    private readonly uploadLogRepository: UploadLogRepository,
   ) {
     this.botToken = this.configService.get<string>('telegram.botToken') ?? '';
     this.webhookUrl =
@@ -31,6 +45,7 @@ export class TelegramService implements OnModuleInit {
 
     this.bot = new Telegraf(this.botToken);
     this.setupCommands();
+    this.setupPhotoHandler();
   }
 
   async onModuleInit() {
@@ -57,15 +72,12 @@ export class TelegramService implements OnModuleInit {
   private setupCommands() {
     // /hi command
     this.bot.command('hi', (ctx: Context) => {
-      // const firstName = ctx.from?.first_name || 'User';
-      // ctx.reply(`Hello, ${firstName}!`);
-      ctx.reply(`Chào mấy con gà, mấy con gà làm đếch gì biết về tài chính!`);
+      ctx.reply('Chào mấy con gà, mấy con gà làm đếch gì biết về tài chính!');
     });
 
-    // /report command
+    // /reports command
     this.bot.command('reports', async (ctx: Context) => {
       try {
-        // Fetch all metrics
         const investmentMonths =
           await this.excelTransactionRepository.getDistinctMonthsCount();
         const totalCapital =
@@ -73,7 +85,6 @@ export class TelegramService implements OnModuleInit {
         const fundCertificates =
           await this.excelTransactionRepository.getTotalNumberOfFundCertificates();
 
-        // Fetch fund price
         const fundPrice = await this.fundPriceRepository.findByName('E1VFVN30');
 
         if (!fundPrice) {
@@ -89,7 +100,6 @@ export class TelegramService implements OnModuleInit {
         const profitLoss =
           totalCapital > 0 ? (navValue / totalCapital - 1) * 100 : 0;
 
-        // Format numbers with Vietnamese locale
         const formatNumber = (num: number) =>
           num.toLocaleString('vi-VN', {
             maximumFractionDigits: 0,
@@ -100,9 +110,8 @@ export class TelegramService implements OnModuleInit {
             maximumFractionDigits: 2,
           });
 
-        // Format timestamp
-        const formatTimestamp = (date: Date) => {
-          return date.toLocaleString('vi-VN', {
+        const formatTimestamp = (date: Date) =>
+          date.toLocaleString('vi-VN', {
             hour: '2-digit',
             minute: '2-digit',
             day: '2-digit',
@@ -110,7 +119,6 @@ export class TelegramService implements OnModuleInit {
             year: 'numeric',
             timeZone: 'Asia/Ho_Chi_Minh',
           });
-        };
 
         const message =
           `📊 *BÁO CÁO QUỸ ĐẦU TƯ*\n\n` +
@@ -131,12 +139,100 @@ export class TelegramService implements OnModuleInit {
 
     // /upload command
     this.bot.command('upload', (ctx: Context) => {
-      ctx.reply('Please upload your file.');
+      const userId = ctx.from?.id;
+      if (!userId) return ctx.reply('Unable to identify user.');
+      this.pendingUploads.add(userId);
+      ctx.reply('Vui lòng gửi hình ảnh để upload lên Supabase Storage.');
     });
 
-    // Error handling
     this.bot.catch((err: any, ctx: Context) => {
       this.logger.error(`Error for ${ctx.updateType}:`, err);
+    });
+  }
+
+  private setupPhotoHandler() {
+    this.bot.on(message('photo'), async (ctx) => {
+      try {
+        const userId = ctx.from?.id;
+        if (!userId) return;
+
+        if (!this.pendingUploads.has(userId)) {
+          // ignore unsolicited photos
+          return;
+        }
+
+        // enforce daily limit
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        const end = new Date();
+        end.setHours(23, 59, 59, 999);
+
+        const uploadsToday =
+          await this.uploadLogRepository.countUploadsForUserBetween(
+            String(userId),
+            start,
+            end,
+          );
+
+        if (uploadsToday >= TelegramService.MAX_UPLOADS_PER_DAY) {
+          this.pendingUploads.delete(userId);
+          ctx.reply(
+            "You've reached your daily upload limit (20 files). Try again tomorrow.",
+          );
+          return;
+        }
+
+        const photos = ctx.message.photo ?? [];
+        if (!photos.length) {
+          ctx.reply('No photo found in the message.');
+          return;
+        }
+
+        // select highest resolution (last in array)
+        const best = photos[photos.length - 1];
+        const fileId = best.file_id;
+
+        const fileLink = await ctx.telegram.getFileLink(fileId);
+        const response = await axios.get(fileLink.href, {
+          responseType: 'arraybuffer',
+        });
+
+        const buffer = Buffer.from(response.data);
+        const mimeType =
+          response.headers['content-type'] || 'application/octet-stream';
+        const ext = extname(fileLink.pathname || '') || '.jpg';
+        const filename = `${Date.now()}_${userId}${ext}`;
+
+        // upload to Supabase Storage
+        const { webUrl } = await this.supabaseStorageService.uploadImage({
+          buffer,
+          filename,
+          mimeType,
+          fileSize: buffer.length,
+        });
+
+        // create upload log
+        await this.uploadLogRepository.createUploadLog({
+          telegramUserId: String(userId),
+          telegramMessageId: String(ctx.message.message_id),
+          originalName: filename,
+          mimeType,
+          fileSize: buffer.length,
+          storageUrl: webUrl,
+        });
+
+        ctx.reply(`Upload successful: ${filename}`);
+        this.pendingUploads.delete(userId);
+      } catch (err) {
+        this.logger.error('Photo upload failed', err);
+        if (err instanceof BadRequestException) {
+          // Surface validation message to user
+          const msg = err.message || 'Invalid file';
+          ctx.reply(`❌ File validation failed: ${msg}`);
+        } else {
+          ctx.reply('Upload failed. Please try again later.');
+        }
+      }
     });
   }
 
@@ -155,6 +251,63 @@ export class TelegramService implements OnModuleInit {
       await this.bot.handleUpdate(update);
     } catch (error) {
       this.logger.error('Error handling update:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Upload image via REST API (for testing purposes)
+   * @param file - Multer file object from Express
+   * @param userId - Optional user ID for tracking (defaults to 'test-user')
+   * @param description - Optional description for the upload
+   */
+  async uploadImageViaRest(
+    file: Express.Multer.File,
+    userId?: string,
+    description?: string,
+  ): Promise<{ webUrl: string; uploadLog: any }> {
+    try {
+      const effectiveUserId = userId || 'test-user';
+      const buffer = file.buffer;
+      const mimeType = file.mimetype;
+      const filename = file.originalname || `upload_${Date.now()}.jpg`;
+
+      // Upload to Supabase Storage
+      const { webUrl } = await this.supabaseStorageService.uploadImage({
+        buffer,
+        filename,
+        mimeType,
+        fileSize: buffer.length,
+      });
+
+      // Create upload log
+      const uploadLog = await this.uploadLogRepository.createUploadLog({
+        telegramUserId: effectiveUserId,
+        telegramMessageId: `rest_${Date.now()}`,
+        originalName: filename,
+        mimeType,
+        fileSize: buffer.length,
+        storageUrl: webUrl,
+      });
+
+      this.logger.log(
+        `REST API upload successful for user ${effectiveUserId}: ${webUrl}`,
+      );
+
+      return {
+        webUrl,
+        uploadLog: {
+          id: uploadLog.id,
+          userId: effectiveUserId,
+          filename,
+          size: buffer.length,
+          url: webUrl,
+          description: description || null,
+          uploadedAt: uploadLog.uploadedAt,
+        },
+      };
+    } catch (error) {
+      this.logger.error('REST API upload failed:', error);
       throw error;
     }
   }

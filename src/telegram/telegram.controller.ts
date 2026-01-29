@@ -1,8 +1,33 @@
-import { Controller, Post, Body, Logger, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Body,
+  Logger,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { TelegramService } from './telegram.service';
 import { TelegramEnabledGuard } from '../common/guards/telegram-enabled.guard';
+import { DisableInProductionGuard } from '../common/guards/disable-in-production.guard';
+import { UploadImageDto } from './dto/upload-image.dto';
 import type { Update } from 'telegraf/types';
+import {
+  IMAGE_FILE_ALLOWED_MIME_TYPES,
+  IMAGE_FILE_MAX_SIZE_BYTES,
+} from '../common/constants/file-upload.constants';
 
 @ApiTags('telegram')
 @Controller({ path: 'telegram', version: '1' })
@@ -25,6 +50,90 @@ export class TelegramController {
       return { success: true };
     } catch (error) {
       this.logger.error('Error handling webhook:', error);
+      throw error;
+    }
+  }
+
+  @Post('upload-image')
+  @UseInterceptors(FileInterceptor('file'))
+  @UseGuards(DisableInProductionGuard)
+  @ApiOperation({
+    summary: 'Test image upload endpoint',
+    description:
+      'Upload an image file to Supabase Storage for testing purposes. No authentication required beyond basic service availability check.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Image file with optional metadata',
+    type: UploadImageDto,
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Image uploaded successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        webUrl: {
+          type: 'string',
+          example: 'https://example.supabase.co/storage/v1/object/...',
+        },
+        uploadLog: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', example: 1 },
+            userId: { type: 'string', example: 'test-user' },
+            filename: { type: 'string', example: 'test-image.jpg' },
+            size: { type: 'number', example: 152048 },
+            url: { type: 'string' },
+            description: { type: 'string', nullable: true },
+            uploadedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Missing or invalid image file' })
+  @ApiResponse({ status: 500, description: 'Upload failed' })
+  @ApiResponse({ status: 503, description: 'Telegram service is unavailable' })
+  async uploadImage(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: IMAGE_FILE_MAX_SIZE_BYTES }),
+          new FileTypeValidator({
+            fileType: new RegExp(
+              `^(${IMAGE_FILE_ALLOWED_MIME_TYPES.map((t) => t.replace('/', '\\/')).join('|')})$`,
+              'i',
+            ),
+          }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @Body() dto: UploadImageDto,
+  ) {
+    this.logger.debug(
+      `Upload image request: userId=${dto.userId}, description=${dto.description}`,
+    );
+
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    try {
+      const result = await this.telegramService.uploadImageViaRest(
+        file,
+        dto.userId,
+        dto.description,
+      );
+
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (error) {
+      this.logger.error('Error uploading image:', error);
       throw error;
     }
   }

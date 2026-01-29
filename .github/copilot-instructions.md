@@ -11,16 +11,16 @@ This project serves **three distinct client types**, each with isolated modules 
 - **Telegram** (`src/telegram/`) - Telegram bot integration (Bearer auth)  
 - **AppScripts** (`src/appscripts/`) - Google AppScript integration (HMAC auth)
 
-**Critical**: Each module is completely isolated and included separately in Swagger config ([src/config/swagger.config.ts](src/config/swagger.config.ts#L1-L150)). When adding endpoints, they MUST be placed in the appropriate module or they won't appear in client-specific docs.
+**Critical**: Each module is completely isolated and included separately in Swagger config ([src/config/swagger.config.ts](../src/config/swagger.config.ts)). When adding endpoints, they MUST be placed in the appropriate module or they won't appear in client-specific docs.
 
 ### Repository Pattern
 All database access goes through repositories (not direct TypeORM repositories):
 - Repositories live in `*/repositories/*.repository.ts` within each module
-- Example: [src/appscripts/repositories/excel-transaction.repository.ts](src/appscripts/repositories/excel-transaction.repository.ts)
+- Example: [src/appscripts/repositories/excel-transaction.repository.ts](../src/appscripts/repositories/excel-transaction.repository.ts)
 - Register repositories as providers in module definitions
 
 ### Security: HMAC Signature Authentication
-AppScripts module uses HMAC-SHA256 signature validation ([src/common/guards/hmac-signature.guard.ts](src/common/guards/hmac-signature.guard.ts)):
+AppScripts module uses HMAC-SHA256 signature validation ([src/common/guards/hmac-signature.guard.ts](../src/common/guards/hmac-signature.guard.ts)):
 - Requires `X-Timestamp` and `X-Signature` headers
 - Timestamp window: 5 minutes
 - String format: `METHOD\nPATH\nQUERY\nTIMESTAMP\nBODY`
@@ -29,7 +29,7 @@ AppScripts module uses HMAC-SHA256 signature validation ([src/common/guards/hmac
 ## Database Configuration
 
 ### Dual-Mode Connection Strategy
-Database connection adapts based on environment ([src/database/data-source.ts](src/database/data-source.ts), [src/database/database.module.ts](src/database/database.module.ts)):
+Database connection adapts based on environment ([src/database/data-source.ts](../src/database/data-source.ts), [src/database/database.module.ts](../src/database/database.module.ts)):
 - **Cloud mode**: `DATABASE_URL` present → enables SSL, uses connection URL (NeonDB)
 - **Local mode**: `DATABASE_URL` absent → uses `DB_HOST`, `DB_PORT`, etc., no SSL
 
@@ -55,7 +55,7 @@ npm run migration:revert
 ## Documentation Generation
 
 ### Swagger Multi-Documentation Setup
-Four separate Swagger instances are configured ([src/config/swagger.config.ts](src/config/swagger.config.ts)):
+Four separate Swagger instances are configured ([src/config/swagger.config.ts](../src/config/swagger.config.ts)):
 1. `/api/docs/web` - Web module only
 2. `/api/docs/telegram` - Telegram module only  
 3. `/api/docs/appscripts` - AppScripts module only (shows HMAC auth)
@@ -72,7 +72,7 @@ npm run docs:generate
 npm run docs:serve
 ```
 
-**Note**: `docs:generate` needs database connection because NestJS bootstraps full app context (see [scripts/generate-docs.ts](scripts/generate-docs.ts) comment).
+**Note**: `docs:generate` needs database connection because NestJS bootstraps full app context (see [scripts/generate-docs.ts](../scripts/generate-docs.ts) comment).
 
 ## Development Workflows
 
@@ -100,16 +100,11 @@ npm run test:e2e           # End-to-end tests
 - **Strict mode**: Partial (`strictNullChecks: true`, but `noImplicitAny: false`)
 - **Decorators**: Enabled for NestJS (`experimentalDecorators`, `emitDecoratorMetadata`)
 
-## Scheduled Tasks
-Fund price crawler ([src/schedule/fund-price-crawler.service.ts](src/schedule/fund-price-crawler.service.ts)):
-- Runs via `@Cron('15 9,13,15 * * *', { timeZone: 'Asia/Ho_Chi_Minh' })`
-- Uses Playwright (headless Chromium) to scrape fund prices
-- Always close browser in `finally` block to prevent memory leaks
 
 ## Code Style & Linting
 - **ESLint**: TypeScript-ESLint with type checking enabled
 - **Prettier**: Single quotes, trailing commas, auto line endings
-- Config: [eslint.config.mjs](eslint.config.mjs), [.prettierrc](.prettierrc)
+- Config: [eslint.config.mjs](../eslint.config.mjs), [.prettierrc](../.prettierrc)
 - Suppress warnings: `@typescript-eslint/no-floating-promises: 'warn'`
 
 ## Environment Variables

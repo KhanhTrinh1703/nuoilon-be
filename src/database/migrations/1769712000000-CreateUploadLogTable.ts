@@ -38,7 +38,7 @@ export class CreateUploadLogTable1769712000000 implements MigrationInterface {
             isNullable: true,
           },
           { name: 'file_size', type: 'bigint', isNullable: false },
-          { name: 'onedrive_url', type: 'text', isNullable: false },
+          { name: 'storage_url', type: 'text', isNullable: false },
           {
             name: 'uploaded_at',
             type: 'timestamp with time zone',

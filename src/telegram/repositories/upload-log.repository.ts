@@ -9,7 +9,7 @@ export interface CreateUploadLogInput {
   originalName: string;
   mimeType?: string;
   fileSize: number;
-  oneDriveUrl: string;
+  storageUrl: string;
 }
 
 @Injectable()
@@ -26,7 +26,7 @@ export class UploadLogRepository {
       originalName: input.originalName,
       mimeType: input.mimeType,
       fileSize: input.fileSize,
-      oneDriveUrl: input.oneDriveUrl,
+      storageUrl: input.storageUrl,
     });
 
     return this.repository.save(entity);

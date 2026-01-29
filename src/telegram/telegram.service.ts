@@ -8,7 +8,7 @@ import { message } from 'telegraf/filters';
 import { Update } from 'telegraf/types';
 import { ExcelTransactionRepository } from './repositories/excel-transaction.repository';
 import { FundPriceRepository } from './repositories/fund-price.repository';
-import { OneDriveService } from './services/onedrive.service';
+import { FirebaseStorageService } from './services/firebase-storage.service';
 import { UploadLogRepository } from './repositories/upload-log.repository';
 
 @Injectable()
@@ -24,7 +24,7 @@ export class TelegramService implements OnModuleInit {
     private readonly configService: ConfigService,
     private readonly excelTransactionRepository: ExcelTransactionRepository,
     private readonly fundPriceRepository: FundPriceRepository,
-    private readonly oneDriveService: OneDriveService,
+    private readonly firebaseStorageService: FirebaseStorageService,
     private readonly uploadLogRepository: UploadLogRepository,
   ) {
     this.botToken = this.configService.get<string>('telegram.botToken') ?? '';
@@ -137,7 +137,7 @@ export class TelegramService implements OnModuleInit {
       const userId = ctx.from?.id;
       if (!userId) return ctx.reply('Unable to identify user.');
       this.pendingUploads.add(userId);
-      ctx.reply('Vui lòng gửi hình ảnh để upload lên OneDrive.');
+      ctx.reply('Vui lòng gửi hình ảnh để upload lên Firebase Storage.');
     });
 
     this.bot.catch((err: any, ctx: Context) => {
@@ -198,8 +198,8 @@ export class TelegramService implements OnModuleInit {
         const ext = extname(fileLink.pathname || '') || '.jpg';
         const filename = `${Date.now()}_${userId}${ext}`;
 
-        // upload to OneDrive
-        const { webUrl } = await this.oneDriveService.uploadImage({
+        // upload to Firebase Storage
+        const { webUrl } = await this.firebaseStorageService.uploadImage({
           buffer,
           filename,
           mimeType,
@@ -213,7 +213,7 @@ export class TelegramService implements OnModuleInit {
           originalName: filename,
           mimeType,
           fileSize: buffer.length,
-          oneDriveUrl: webUrl,
+          storageUrl: webUrl,
         });
 
         ctx.reply(`Upload successful: ${webUrl}`);

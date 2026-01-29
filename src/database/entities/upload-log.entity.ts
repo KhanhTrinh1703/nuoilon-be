@@ -25,8 +25,8 @@ export class UploadLog {
   @Column({ name: 'file_size', type: 'bigint' })
   fileSize: number;
 
-  @Column({ name: 'onedrive_url', type: 'text' })
-  oneDriveUrl: string;
+  @Column({ name: 'storage_url', type: 'text' })
+  storageUrl: string;
 
   @CreateDateColumn({ name: 'uploaded_at' })
   uploadedAt: Date;

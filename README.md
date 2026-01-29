@@ -28,12 +28,12 @@
 ## Nuoilon Backend
 
 ## Overview
-Nuoilon is a multi-client NestJS 11 backend that tracks fund transactions and NAV, exposes client-specific APIs (Web, Telegram, Google AppScripts), and now supports sending Telegram photos directly to OneDrive via Microsoft Graph.
+Nuoilon is a multi-client NestJS 11 backend that tracks fund transactions and NAV, exposes client-specific APIs (Web, Telegram, Google AppScripts), and now streams Telegram photos directly to Firebase Storage via the Firebase Admin SDK.
 
 ## Features
 - Multi-client modules with isolated Swagger documentation for each surface.
 - Telegram bot commands `/hi`, `/reports`, `/upload` with localized responses.
-- `/upload` streams Telegram images to OneDrive, renames them to `{timestamp}_{telegramUserId}_{originalName}`, and enforces 20 uploads per user per day.
+- `/upload` streams Telegram images to Firebase Storage, renames them to `{timestamp}_{telegramUserId}_{originalName}`, and enforces 20 uploads per user per day.
 - Repository-driven TypeORM data access writing to PostgreSQL/NeonDB.
 - Static OpenAPI export under `docs/` for sharing API references.
 - Configurable dual database mode (env switch between local params and `DATABASE_URL`).
@@ -42,7 +42,7 @@ Nuoilon is a multi-client NestJS 11 backend that tracks fund transactions and NA
 - Node.js 20+, TypeScript 5.7
 - NestJS 11, Telegraf 4.16
 - TypeORM 0.3 + PostgreSQL/Neon
-- Microsoft Graph SDK + `@azure/identity`
+- Firebase Admin SDK + Google Cloud Storage
 - Axios, class-validator/transformer
 - ESLint + Prettier + Jest
 
@@ -94,11 +94,9 @@ ACTIVE_SECRET=replace-me
 TELEGRAM_BOT_TOKEN=bot-token-from-botfather
 TELEGRAM_WEBHOOK_URL=https://your-domain.com/api/v1/telegram/webhook
 
-ONEDRIVE_CLIENT_ID=<azure-app-client-id>
-ONEDRIVE_CLIENT_SECRET=<azure-app-client-secret>
-ONEDRIVE_TENANT_ID=<azure-tenant-id>
-ONEDRIVE_USER_ID=<onedrive-email-or-user-id>
-ONEDRIVE_UPLOAD_FOLDER=BotUploads
+FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"your-project-id","private_key_id":"abc123","private_key":"-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n","client_email":"firebase-adminsdk@your-project-id.iam.gserviceaccount.com","client_id":"1234567890","token_uri":"https://oauth2.googleapis.com/token"}
+FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
+FIREBASE_UPLOAD_FOLDER=telegram-uploads
 ```
 
 `ONEDRIVE_UPLOAD_FOLDER` defaults to `BotUploads` and is created automatically if missing.
@@ -121,23 +119,18 @@ npm run migration:revert
 ## Telegram Bot Workflow
 - `/hi`: playful greeting in Vietnamese.
 - `/reports`: aggregates monthly investment stats from `excel_transactions` plus the latest NAV from `fund_prices`, then posts a Markdown summary.
-- `/upload`: prompts for an image, validates MIME (`image/jpeg`, `image/png`, `image/gif`, `image/webp`), enforces 20 uploads per user per day, streams the highest-resolution Telegram photo to OneDrive, records the action in `upload_logs`, and replies with the OneDrive link.
+- `/upload`: prompts for an image, validates MIME (`image/jpeg`, `image/png`, `image/gif`, `image/webp`), enforces 20 uploads per user per day, streams the highest-resolution Telegram photo to Firebase Storage, records the action in `upload_logs`, and replies with the public URL.
 - Error messages surfaced to users:
   - "You've reached your daily upload limit (20 files). Try again tomorrow."
   - "Upload failed. Please try again later."
 
-## OneDrive Integration Checklist
-1. Register an Azure AD application that supports personal Microsoft accounts + organizational directories.
-2. Create a client secret and capture the **Application (client) ID**, **Directory (tenant) ID**, and secret value.
-3. Grant Microsoft Graph **Application** permission `Files.ReadWrite.All` and click **Grant admin consent**.
-4. Determine the OneDrive user by email or via Graph Explorer:
-
-```http
-GET https://graph.microsoft.com/v1.0/me
-```
-
-5. Populate the `ONEDRIVE_*` variables, restart the API, and watch the logs for successful OneDrive initialization.
-6. Verify uploads by sending `/upload` to the Telegram bot and checking the configured OneDrive folder.
+## Firebase Storage Integration Checklist
+1. Create a Firebase project (or reuse an existing one) and enable Cloud Storage.
+2. Create a service account with the **Storage Admin** role and generate a JSON key.
+3. Store the JSON payload as a single-line string in `FIREBASE_SERVICE_ACCOUNT_JSON` (escape newline characters as `\\n`).
+4. Set `FIREBASE_STORAGE_BUCKET` to the default bucket name (`<project-id>.appspot.com`) and optionally configure `FIREBASE_UPLOAD_FOLDER`.
+5. Restart the API and confirm logs show successful Firebase Storage initialization.
+6. Send `/upload` to the Telegram bot and verify the object appears in the configured Firebase Storage bucket; the bot will return a public URL.
 
 ## Static Documentation
 - Generate JSON + HTML docs (requires database connectivity):
@@ -170,6 +163,6 @@ npm run test:e2e
 
 ## Troubleshooting
 - **Webhook inactive**: ensure `TELEGRAM_WEBHOOK_URL` is HTTPS and reachable; run `npm run telegram:setup` if needed.
-- **OneDrive 401/403**: confirm the `Files.ReadWrite.All` permission has admin consent and the client secret is valid.
+- **Firebase 401/403**: confirm the service account has the Storage Admin role and the bucket rules allow server-side writes.
 - **Uploads rejected immediately**: check server time drift; rate limiting uses the server's local date boundaries.
 - **Docs generation fails**: verify the database connection string because `npm run docs:generate` boots the full NestJS context.

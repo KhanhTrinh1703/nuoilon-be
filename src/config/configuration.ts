@@ -22,11 +22,9 @@ export default () => ({
     botToken: process.env.TELEGRAM_BOT_TOKEN,
     webhookUrl: process.env.TELEGRAM_WEBHOOK_URL,
   },
-  onedrive: {
-    clientId: process.env.ONEDRIVE_CLIENT_ID,
-    clientSecret: process.env.ONEDRIVE_CLIENT_SECRET,
-    tenantId: process.env.ONEDRIVE_TENANT_ID,
-    userId: process.env.ONEDRIVE_USER_ID,
-    uploadFolder: process.env.ONEDRIVE_UPLOAD_FOLDER || 'BotUploads',
+  firebase: {
+    serviceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    uploadFolder: process.env.FIREBASE_UPLOAD_FOLDER || 'telegram-uploads',
   },
 });

@@ -5,6 +5,7 @@ import * as path from 'path';
 import { WebModule } from '../web/web.module';
 import { TelegramModule } from '../telegram/telegram.module';
 import { AppscriptsModule } from '../appscripts/appscripts.module';
+import { ReportModule } from '../report/report.module';
 
 /**
  * Setup Swagger documentation for all client types
@@ -68,6 +69,22 @@ export function setupSwaggerDocs(app: INestApplication): void {
     customCss: '.swagger-ui .topbar { display: none }',
   });
 
+  // Report Client Documentation
+  const reportConfig = new DocumentBuilder()
+    .setTitle('Nuoilon API - Monthly Report')
+    .setDescription('API documentation for monthly investment reports')
+    .setVersion('1.0')
+    .addTag('report', 'Monthly investment report endpoints')
+    .build();
+
+  const reportDocument = SwaggerModule.createDocument(app, reportConfig, {
+    include: [ReportModule],
+  });
+  SwaggerModule.setup('api/docs/report', app, reportDocument, {
+    customSiteTitle: 'Nuoilon API - Report',
+    customCss: '.swagger-ui .topbar { display: none }',
+  });
+
   // Complete API Documentation (All endpoints)
   const completeConfig = new DocumentBuilder()
     .setTitle('Nuoilon API - Complete Documentation')
@@ -76,6 +93,7 @@ export function setupSwaggerDocs(app: INestApplication): void {
     .addTag('web', 'Web client endpoints')
     .addTag('telegram', 'Telegram bot endpoints')
     .addTag('appscripts', 'AppScript endpoints with HMAC signature validation')
+    .addTag('report', 'Monthly investment report endpoints')
     .addBearerAuth()
     .addApiKey(
       { type: 'apiKey', name: 'X-Signature', in: 'header' },
@@ -90,10 +108,12 @@ export function setupSwaggerDocs(app: INestApplication): void {
   });
 
   // Export OpenAPI JSON files for static documentation
+  // Export OpenAPI JSON files for static documentation
   exportOpenApiJsonFiles({
     web: webDocument,
     telegram: telegramDocument,
     appscripts: appscriptDocument,
+    report: reportDocument,
     complete: completeDocument,
   });
 
@@ -108,6 +128,7 @@ function exportOpenApiJsonFiles(documents: {
   web: any;
   telegram: any;
   appscripts: any;
+  report: any;
   complete: any;
 }): void {
   const docsDir = path.join(process.cwd(), 'docs');
@@ -129,6 +150,10 @@ function exportOpenApiJsonFiles(documents: {
     JSON.stringify(documents.appscripts, null, 2),
   );
   fs.writeFileSync(
+    path.join(docsDir, 'openapi-report.json'),
+    JSON.stringify(documents.report, null, 2),
+  );
+  fs.writeFileSync(
     path.join(docsDir, 'openapi-complete.json'),
     JSON.stringify(documents.complete, null, 2),
   );
@@ -143,5 +168,11 @@ function logDocumentationUrls(): void {
   console.log('   - Web: http://localhost:3000/api/docs/web');
   console.log('   - Telegram: http://localhost:3000/api/docs/telegram');
   console.log('   - AppScript: http://localhost:3000/api/docs/appscripts');
+  console.log('   - Report: http://localhost:3000/api/docs/report');
   console.log('📄 OpenAPI JSON files exported to /docs directory');
+  console.log('   - openapi-web.json');
+  console.log('   - openapi-telegram.json');
+  console.log('   - openapi-appscripts.json');
+  console.log('   - openapi-report.json');
+  console.log('   - openapi-complete.json');
 }

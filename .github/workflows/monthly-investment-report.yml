@@ -1,0 +1,31 @@
+name: Monthly Investment Report
+
+on:
+  schedule:
+    - cron: '0 10 28-31 * *'
+  workflow_dispatch:
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NODE_VERSION: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate monthly investment report
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          REPORT_FUND_NAME: ${{ secrets.REPORT_FUND_NAME }}
+        run: npx ts-node scripts/generate-monthly-report.ts

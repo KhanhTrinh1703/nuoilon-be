@@ -7,6 +7,7 @@ import { WebModule } from './web/web.module';
 import { DatabaseModule } from './database/database.module';
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
+import { ReportModule } from './report/report.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import configuration from './config/configuration';
     TelegramModule,
     WebModule,
     DatabaseModule,
+    ReportModule,
   ],
   controllers: [AppController],
   providers: [AppService],

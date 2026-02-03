@@ -15,7 +15,6 @@ interface ReportSummary {
   profitValue: number;
   profitRatio: number;
   navPrice: number;
-  averageNavPrice: number;
   months: number;
 }
 
@@ -26,7 +25,6 @@ interface TemplateData {
   totalCertificatesLabel: string;
   currentValueLabel: string;
   navLabel: string;
-  avgNavLabel: string;
   monthsLabel: string;
   profitRatioLabel: string;
   profitDescription: string;
@@ -74,8 +72,35 @@ export class ReportImageService {
         .slice()
         .sort((a, b) => a.reportMonth.localeCompare(b.reportMonth));
 
+      // Get sum of previous records before the first month in chart
+      let previousTotals = { certificatesValue: 0, totalInvestment: 0 };
+      if (chronologicalReports.length) {
+        const result = await this.monthlyInvestmentReportRepository
+          .createQueryBuilder('report')
+          .select(
+            'COALESCE(SUM(report.certificatesValue), 0)',
+            'certificatesValue',
+          )
+          .addSelect(
+            'COALESCE(SUM(report.totalInvestment), 0)',
+            'totalInvestment',
+          )
+          .where('report.fundName = :fundName', { fundName })
+          .andWhere('report.reportMonth < :firstMonth', {
+            firstMonth: chronologicalReports[0].reportMonth,
+          })
+          .getRawOne<{ certificatesValue: string; totalInvestment: string }>();
+
+        if (result) {
+          previousTotals = {
+            certificatesValue: Math.round(Number(result.certificatesValue)),
+            totalInvestment: Math.round(Number(result.totalInvestment)),
+          };
+        }
+      }
+
       const summary = await this.buildSummary(fundName, chronologicalReports);
-      const chart = this.buildChartData(chronologicalReports);
+      const chart = this.buildChartData(chronologicalReports, previousTotals);
       const chartUrl = this.generateChartUrl(chart);
       const templateData = this.buildTemplateData(summary, chartUrl);
 
@@ -138,13 +163,11 @@ export class ReportImageService {
     const profitRatio =
       totalInvestment > 0 ? (profitValue / totalInvestment) * 100 : 0;
 
-    const averageNavPrice =
-      reports.length > 0
-        ? reports.reduce(
-            (sum, report) => sum + Number(report.latestFundPrice),
-            0,
-          ) / reports.length
-        : navPrice;
+    // Count total invested months (all records in the table)
+    const totalInvestedMonths =
+      await this.monthlyInvestmentReportRepository.count({
+        where: { fundName },
+      });
 
     return {
       fundName,
@@ -155,12 +178,14 @@ export class ReportImageService {
       profitValue,
       profitRatio,
       navPrice,
-      averageNavPrice,
-      months: reports.length,
+      months: totalInvestedMonths,
     };
   }
 
-  private buildChartData(reports: MonthlyInvestmentReport[]): ChartData {
+  private buildChartData(
+    reports: MonthlyInvestmentReport[],
+    previousTotals: { certificatesValue: number; totalInvestment: number },
+  ): ChartData {
     if (!reports.length) {
       return {
         labels: ['Không có dữ liệu'],
@@ -169,16 +194,27 @@ export class ReportImageService {
       };
     }
 
+    // Start with cumulative totals from previous months
+    let cumulativeNav = previousTotals.certificatesValue;
+    let cumulativeInvestment = previousTotals.totalInvestment;
+
+    const navSeries: number[] = [];
+    const investmentSeries: number[] = [];
+
+    reports.forEach((report) => {
+      cumulativeNav += Math.round(Number(report.certificatesValue));
+      cumulativeInvestment += Math.round(Number(report.totalInvestment));
+
+      navSeries.push(cumulativeNav);
+      investmentSeries.push(cumulativeInvestment);
+    });
+
     return {
       labels: reports.map((report) =>
         this.formatMonthLabel(report.reportMonth),
       ),
-      navSeries: reports.map((report) =>
-        Math.round(Number(report.certificatesValue)),
-      ),
-      investmentSeries: reports.map((report) =>
-        Math.round(Number(report.totalInvestment)),
-      ),
+      navSeries,
+      investmentSeries,
     };
   }
 
@@ -265,7 +301,6 @@ export class ReportImageService {
       ),
       currentValueLabel: `${this.formatCurrency(summary.currentValue)} VNĐ`,
       navLabel: `${this.formatCurrency(summary.navPrice * 1000)} VNĐ`,
-      avgNavLabel: `${this.formatCurrency(summary.averageNavPrice * 1000)} VNĐ`,
       monthsLabel: summary.months ? `${summary.months} tháng` : '0 tháng',
       profitRatioLabel: `${profitPositive ? '+' : ''}${summary.profitRatio.toFixed(2)}%`,
       profitDescription: profitPositive
@@ -382,10 +417,6 @@ export class ReportImageService {
             <div style="display: flex; flex-direction: column;">
               <span style="font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase; margin-bottom: 4px;">NAV/CCQ Hiện Tại</span>
               <span style="font-size: 18px; font-weight: 700; color: #0F172A;">${data.navLabel}</span>
-            </div>
-            <div style="display: flex; flex-direction: column;">
-              <span style="font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase; margin-bottom: 4px;">NAV/CCQ Trung Bình</span>
-              <span style="font-size: 18px; font-weight: 700; color: #0F172A;">${data.avgNavLabel}</span>
             </div>
             <div style="display: flex; flex-direction: column;">
               <span style="font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase; margin-bottom: 4px;">Số Tháng Đầu Tư</span>

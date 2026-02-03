@@ -64,6 +64,19 @@ export class MonthlyInvestmentReportRepository extends Repository<MonthlyInvestm
     return this.findOne({ where: { reportMonth, fundName } });
   }
 
+  async findLastNMonthsReports(
+    fundName: string,
+    limit = 12,
+  ): Promise<MonthlyInvestmentReport[]> {
+    const effectiveLimit = limit > 0 ? limit : 1;
+
+    return this.createQueryBuilder('report')
+      .where('report.fundName = :fundName', { fundName })
+      .orderBy('report.reportMonth', 'DESC')
+      .limit(effectiveLimit)
+      .getMany();
+  }
+
   private buildDateRange(month: string): { startDate: Date; endDate: Date } {
     const [yearValue, monthValue] = month.split('-');
     const year = Number(yearValue);

@@ -9,11 +9,19 @@ import { UploadLog } from '../database/entities/upload-log.entity';
 import { ExcelTransactionRepository } from './repositories/excel-transaction.repository';
 import { FundPriceRepository } from './repositories/fund-price.repository';
 import { UploadLogRepository } from './repositories/upload-log.repository';
+import { MonthlyInvestmentReport } from '../database/entities/monthly-investment-report.entity';
+import { MonthlyInvestmentReportRepository } from '../report/repositories/monthly-investment-report.repository';
 import { SupabaseStorageService } from './services/supabase-storage.service';
+import { ReportImageService } from './services/report-image.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ExcelTransaction, FundPrice, UploadLog]),
+    TypeOrmModule.forFeature([
+      ExcelTransaction,
+      FundPrice,
+      UploadLog,
+      MonthlyInvestmentReport,
+    ]),
     ConfigModule,
   ],
   controllers: [TelegramController],
@@ -22,7 +30,9 @@ import { SupabaseStorageService } from './services/supabase-storage.service';
     ExcelTransactionRepository,
     FundPriceRepository,
     UploadLogRepository,
+    MonthlyInvestmentReportRepository,
     SupabaseStorageService,
+    ReportImageService,
   ],
 })
 export class TelegramModule {}

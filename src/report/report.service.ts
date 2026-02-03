@@ -75,6 +75,28 @@ export class ReportService {
     return this.toResponse(report);
   }
 
+  async getHistoricalReports(
+    fundName: string,
+    limit = 12,
+  ): Promise<MonthlyReportResponseDto[]> {
+    const trimmedFundName = fundName.trim();
+    const effectiveLimit = limit > 0 ? limit : 1;
+
+    const reports =
+      await this.monthlyInvestmentReportRepository.findLastNMonthsReports(
+        trimmedFundName,
+        effectiveLimit,
+      );
+
+    if (!reports.length) {
+      return [];
+    }
+
+    return reports
+      .sort((a, b) => a.reportMonth.localeCompare(b.reportMonth))
+      .map((report) => this.toResponse(report));
+  }
+
   private normalizeMonth(month: string): string {
     const trimmed = month.trim();
     if (!/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(trimmed)) {

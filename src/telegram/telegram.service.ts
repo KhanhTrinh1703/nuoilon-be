@@ -15,6 +15,8 @@ import { ExcelTransactionRepository } from './repositories/excel-transaction.rep
 import { FundPriceRepository } from './repositories/fund-price.repository';
 import { SupabaseStorageService } from './services/supabase-storage.service';
 import { UploadLogRepository } from './repositories/upload-log.repository';
+import { ReportImageService } from './services/report-image.service';
+import { MonthlyInvestmentReportRepository } from '../report/repositories/monthly-investment-report.repository';
 
 @Injectable()
 export class TelegramService implements OnModuleInit {
@@ -24,13 +26,15 @@ export class TelegramService implements OnModuleInit {
   private readonly botToken: string;
   private readonly webhookUrl: string;
   private pendingUploads = new Set<number>();
-
+  private isGeneratingReport = false;
   constructor(
     private readonly configService: ConfigService,
     private readonly excelTransactionRepository: ExcelTransactionRepository,
     private readonly fundPriceRepository: FundPriceRepository,
     private readonly supabaseStorageService: SupabaseStorageService,
     private readonly uploadLogRepository: UploadLogRepository,
+    private readonly monthlyInvestmentReportRepository: MonthlyInvestmentReportRepository,
+    private readonly reportImageService: ReportImageService,
   ) {
     this.botToken = this.configService.get<string>('telegram.botToken') ?? '';
     this.webhookUrl =
@@ -145,6 +149,11 @@ export class TelegramService implements OnModuleInit {
       ctx.reply('Vui lòng gửi hình ảnh để upload lên Supabase Storage.');
     });
 
+    // /report-image command
+    this.bot.command('report-image', async (ctx: Context) => {
+      await this.handleReportImageCommand(ctx);
+    });
+
     this.bot.catch((err: any, ctx: Context) => {
       this.logger.error(`Error for ${ctx.updateType}:`, err);
     });
@@ -234,6 +243,31 @@ export class TelegramService implements OnModuleInit {
         }
       }
     });
+  }
+
+  private async handleReportImageCommand(ctx: Context): Promise<void> {
+    if (this.isGeneratingReport) {
+      ctx.reply('⏳ Một báo cáo đang được tạo, vui lòng đợi...');
+      return;
+    }
+
+    try {
+      this.isGeneratingReport = true;
+      ctx.reply('📸 Đang tạo báo cáo ảnh, xin chờ...');
+
+      const result = await this.reportImageService.generateReportImage();
+
+      // send photo
+      await ctx.replyWithPhoto(
+        { source: result.buffer },
+        { caption: result.caption },
+      );
+    } catch (error) {
+      this.logger.error('Error generating report image:', error);
+      ctx.reply('❌ Không thể tạo báo cáo ảnh, thử lại sau.');
+    } finally {
+      this.isGeneratingReport = false;
+    }
   }
 
   private async setWebhook() {

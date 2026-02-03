@@ -43,8 +43,9 @@ lerna-debug.log*
 .env.local
 
 # temp directory
-.temp
+/.temp
 .tmp
+temp/
 
 # Runtime data
 pids
@@ -60,6 +61,10 @@ docs/openapi-*.json
 
 # Github Copilot
 plans
+.github/prompts/ui-ux-pro-max
 
 # Vercel
 .vercel
+
+# Python
+__pycache__/

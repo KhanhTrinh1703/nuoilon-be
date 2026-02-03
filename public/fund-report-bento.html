@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Báo Cáo Đầu Tư Quỹ Mở</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- IBM Plex Sans Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js for Line Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        * {
+            font-family: 'IBM Plex Sans', sans-serif;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #EFF6FF 0%, #F8FAFC 100%);
+        }
+        
+        .report-container {
+            width: 100vw;
+            height: 100vh;
+            max-width: 100vw;
+            max-height: 100vh;
+            aspect-ratio: 16 / 9;
+            background: linear-gradient(135deg, #EFF6FF 0%, #F8FAFC 100%);
+        }
+        
+        /* Fit container while maintaining aspect ratio */
+        @media (min-aspect-ratio: 16/9) {
+            .report-container {
+                width: auto;
+                height: 100vh;
+            }
+        }
+        
+        @media (max-aspect-ratio: 16/9) {
+            .report-container {
+                width: 100vw;
+                height: auto;
+            }
+        }
+        
+        /* Smooth transitions */
+        .stat-card {
+            transition: all 200ms ease-in-out;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -8px rgba(59, 130, 246, 0.15);
+        }
+    </style>
+</head>
+<body>
+    <div class="report-container p-8">
+        <!-- Bento Grid Layout -->
+        <div class="grid grid-cols-12 grid-rows-6 gap-6 h-full">
+            
+            <!-- Header - Fund Name & Period (Spans 8 columns, 1 row) -->
+            <div class="col-span-8 row-span-1 bg-white rounded-2xl border border-gray-200 p-6 flex items-center justify-between shadow-sm">
+                <div>
+                    <h1 class="text-3xl font-bold text-slate-900">VCBF-BCF - Quỹ Cân Bằng VCB</h1>
+                    <p class="text-slate-600 mt-1 font-medium">Thời gian đầu tư: <span class="text-blue-600">01/2024 - 12/2024</span></p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <!-- Icon Fund -->
+                    <svg class="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+            </div>
+            
+            <!-- Profit Ratio (Spans 4 columns, 2 rows) - Large Impact Card -->
+            <div id="profitCard" class="col-span-4 row-span-2 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 flex flex-col justify-between shadow-lg">
+                <div>
+                    <div class="flex items-center gap-2 text-white/90 mb-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                        <span class="text-sm font-medium uppercase tracking-wide">Tỷ Lệ Lợi Nhuận</span>
+                    </div>
+                    <div class="text-6xl font-bold text-white" id="profitValue">+12.45%</div>
+                </div>
+                <div class="text-white/80 text-sm font-medium">
+                    Hiệu suất đầu tư tích cực
+                </div>
+            </div>
+            
+            <!-- Total Capital (Spans 4 columns, 1 row) -->
+            <div class="col-span-4 row-span-1 bg-white rounded-2xl border border-gray-200 p-6 shadow-sm stat-card">
+                <div class="flex items-center gap-3 mb-2">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                    <span class="text-sm font-semibold text-slate-600 uppercase tracking-wide">Tổng Vốn</span>
+                </div>
+                <div class="text-3xl font-bold text-slate-900">500,000,000 ₫</div>
+            </div>
+            
+            <!-- Number of Certificates (Spans 4 columns, 1 row) -->
+            <div class="col-span-4 row-span-1 bg-white rounded-2xl border border-gray-200 p-6 shadow-sm stat-card">
+                <div class="flex items-center gap-3 mb-2">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <span class="text-sm font-semibold text-slate-600 uppercase tracking-wide">Số CCQ Sở Hữu</span>
+                </div>
+                <div class="text-3xl font-bold text-slate-900">25,320.50</div>
+            </div>
+            
+            <!-- Current Value (Spans 4 columns, 1 row) -->
+            <div class="col-span-4 row-span-1 bg-white rounded-2xl border border-gray-200 p-6 shadow-sm stat-card">
+                <div class="flex items-center gap-3 mb-2">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="text-sm font-semibold text-slate-600 uppercase tracking-wide">Giá Trị Hiện Tại</span>
+                </div>
+                <div class="text-3xl font-bold text-slate-900">562,250,000 ₫</div>
+            </div>
+            
+            <!-- Chart Area (Spans 8 columns, 4 rows) -->
+            <div class="col-span-8 row-span-4 bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                <div class="mb-4">
+                    <h3 class="text-lg font-semibold text-slate-900">Biểu Đồ Giá Trị Quỹ (12 Tháng Gần Nhất)</h3>
+                    <p class="text-sm text-slate-600 mt-1">So sánh giá trị quỹ và vốn đầu tư theo thời gian</p>
+                </div>
+                <div class="h-[calc(100%-4rem)]">
+                    <canvas id="fundChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Additional Metrics (Spans 4 columns, 2 rows) -->
+            <div class="col-span-4 row-span-2 bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                <h3 class="text-lg font-semibold text-slate-900 mb-4">Thông Tin Thêm</h3>
+                
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center pb-3 border-b border-gray-100">
+                        <span class="text-sm font-medium text-slate-600">Lợi nhuận</span>
+                        <span class="text-lg font-bold text-emerald-600">+62,250,000 ₫</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center pb-3 border-b border-gray-100">
+                        <span class="text-sm font-medium text-slate-600">NAV/CCQ hiện tại</span>
+                        <span class="text-lg font-bold text-slate-900">22,205 ₫</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center pb-3 border-b border-gray-100">
+                        <span class="text-sm font-medium text-slate-600">NAV/CCQ trung bình</span>
+                        <span class="text-lg font-bold text-slate-900">19,748 ₫</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-medium text-slate-600">Số tháng đầu tư</span>
+                        <span class="text-lg font-bold text-slate-900">12 tháng</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer - Report Info (Spans 4 columns, 1 row) -->
+            <div class="col-span-4 row-span-1 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-6 flex items-center justify-between shadow-lg">
+                <div>
+                    <div class="text-white/90 text-xs font-medium uppercase tracking-wider mb-1">Ngày Báo Cáo</div>
+                    <div class="text-white text-lg font-bold" id="reportDate">03/02/2026</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-white/90 text-xs font-medium uppercase tracking-wider mb-1">Loại Quỹ</div>
+                    <div class="text-white text-lg font-bold">Quỹ Mở</div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        // Sample data for 12 months
+        const months = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
+        
+        // Fund value over time (increasing trend)
+        const fundValues = [
+            505000000, 510000000, 515000000, 522000000, 530000000, 538000000,
+            545000000, 550000000, 555000000, 558000000, 560000000, 562250000
+        ];
+        
+        // Investment capital over time (stepped increases as money is added)
+        const investmentValues = [
+            100000000, 150000000, 200000000, 250000000, 300000000, 350000000,
+            400000000, 425000000, 450000000, 475000000, 490000000, 500000000
+        ];
+        
+        // Initialize chart
+        const ctx = document.getElementById('fundChart').getContext('2d');
+        const fundChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: months,
+                datasets: [
+                    {
+                        label: 'Giá trị quỹ',
+                        data: fundValues,
+                        borderColor: '#3B82F6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        pointBackgroundColor: '#3B82F6',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    },
+                    {
+                        label: 'Vốn đầu tư',
+                        data: investmentValues,
+                        borderColor: '#64748B',
+                        backgroundColor: 'rgba(100, 116, 139, 0.05)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        pointBackgroundColor: '#64748B',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        borderDash: [5, 5]
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: {
+                                family: 'IBM Plex Sans',
+                                size: 13,
+                                weight: '500'
+                            },
+                            color: '#475569',
+                            usePointStyle: true,
+                            padding: 15
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        titleFont: {
+                            family: 'IBM Plex Sans',
+                            size: 13,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            family: 'IBM Plex Sans',
+                            size: 12
+                        },
+                        padding: 12,
+                        cornerRadius: 8,
+                        displayColors: true,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                label += new Intl.NumberFormat('vi-VN', {
+                                    style: 'currency',
+                                    currency: 'VND'
+                                }).format(context.parsed.y);
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            font: {
+                                family: 'IBM Plex Sans',
+                                size: 12,
+                                weight: '500'
+                            },
+                            color: '#64748B'
+                        }
+                    },
+                    y: {
+                        beginAtZero: false,
+                        grid: {
+                            color: '#F1F5F9',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                family: 'IBM Plex Sans',
+                                size: 12
+                            },
+                            color: '#64748B',
+                            callback: function(value) {
+                                return (value / 1000000).toFixed(0) + 'M';
+                            }
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
+        });
+        
+        // Dynamic profit calculation and color
+        function updateProfitDisplay() {
+            const totalInvestment = 500000000;
+            const currentValue = 562250000;
+            const profit = currentValue - totalInvestment;
+            const profitRatio = ((profit / totalInvestment) * 100).toFixed(2);
+            
+            const profitCard = document.getElementById('profitCard');
+            const profitValue = document.getElementById('profitValue');
+            
+            if (profit >= 0) {
+                profitCard.className = 'col-span-4 row-span-2 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 flex flex-col justify-between shadow-lg';
+                profitValue.textContent = '+' + profitRatio + '%';
+            } else {
+                profitCard.className = 'col-span-4 row-span-2 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl p-6 flex flex-col justify-between shadow-lg';
+                profitValue.textContent = profitRatio + '%';
+            }
+        }
+        
+        // Update on load
+        updateProfitDisplay();
+        
+        // Set current date
+        const today = new Date();
+        const dateStr = today.toLocaleDateString('vi-VN', { 
+            day: '2-digit', 
+            month: '2-digit', 
+            year: 'numeric' 
+        });
+        document.getElementById('reportDate').textContent = dateStr;
+    </script>
+</body>
+</html>

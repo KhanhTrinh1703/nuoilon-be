@@ -1,7 +1,6 @@
 import axios from 'axios';
 import { Injectable, Logger } from '@nestjs/common';
 import QuickChart from 'quickchart-js';
-import { ImageResponse } from '@vercel/og';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { html } from 'satori-html';
@@ -86,35 +85,18 @@ export class ReportImageService {
       const chartUrl = this.generateChartUrl(chart);
       const templateData = this.buildTemplateData(summary, chartUrl);
 
-      // Load fonts
-      // const [fontData, fontBoldData] = await Promise.all([
-      //   this.loadFont(ReportImageService.FONT_URL),
-      //   this.loadFont(ReportImageService.FONT_BOLD_URL),
-      // ]);
-
       // Build HTML template and convert to React-like element
       const htmlTemplate = this.buildHtmlTemplate(templateData);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
       const element = html(htmlTemplate);
 
+      // Dynamic import for @vercel/og (ESM module)
+      const { ImageResponse } = await import('@vercel/og');
+
       // Generate image using @vercel/og
       const image = new ImageResponse(element, {
         width: 1200,
         height: 675,
-        // fonts: [
-        //   {
-        //     name: 'IBM Plex Sans',
-        //     data: fontData,
-        //     weight: 400,
-        //     style: 'normal',
-        //   },
-        //   {
-        //     name: 'IBM Plex Sans',
-        //     data: fontBoldData,
-        //     weight: 700,
-        //     style: 'normal',
-        //   },
-        // ],
       });
 
       const arrayBuffer = await image.arrayBuffer();

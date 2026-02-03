@@ -3,7 +3,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import QuickChart from 'quickchart-js';
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import { html } from 'satori-html';
 import { MonthlyInvestmentReportRepository } from '../../report/repositories/monthly-investment-report.repository';
 import { FundPriceRepository } from '../repositories/fund-price.repository';
 import { MonthlyInvestmentReport } from '../../database/entities/monthly-investment-report.entity';
@@ -87,11 +86,12 @@ export class ReportImageService {
 
       // Build HTML template and convert to React-like element
       const htmlTemplate = this.buildHtmlTemplate(templateData);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-      const element = html(htmlTemplate);
 
-      // Dynamic import for @vercel/og (ESM module)
+      // Dynamic imports for ESM modules
+      const { html } = await import('satori-html');
       const { ImageResponse } = await import('@vercel/og');
+
+      const element = html(htmlTemplate);
 
       // Generate image using @vercel/og
       const image = new ImageResponse(element, {

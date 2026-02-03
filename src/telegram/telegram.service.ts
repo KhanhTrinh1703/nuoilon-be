@@ -150,7 +150,7 @@ export class TelegramService implements OnModuleInit {
     });
 
     // /report-image command
-    this.bot.command('report-image', async (ctx: Context) => {
+    this.bot.command('report_image', async (ctx: Context) => {
       await this.handleReportImageCommand(ctx);
     });
 

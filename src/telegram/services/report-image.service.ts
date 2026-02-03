@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { Injectable, Logger } from '@nestjs/common';
 import QuickChart from 'quickchart-js';
 import { promises as fs } from 'fs';
@@ -16,7 +15,6 @@ interface ReportSummary {
   profitValue: number;
   profitRatio: number;
   navPrice: number;
-  averageNavPrice: number;
   months: number;
 }
 
@@ -27,7 +25,6 @@ interface TemplateData {
   totalCertificatesLabel: string;
   currentValueLabel: string;
   navLabel: string;
-  avgNavLabel: string;
   monthsLabel: string;
   profitRatioLabel: string;
   profitDescription: string;
@@ -46,10 +43,6 @@ interface ChartData {
 @Injectable()
 export class ReportImageService {
   private static readonly DEFAULT_FUND = 'E1VFVN30';
-  private static readonly FONT_URL =
-    'https://fonts.gstatic.com/s/ibmplexsans/v19/zYXgKVElMYYaJe8bpLHnCwDKhd5013WhCL8V.woff2';
-  private static readonly FONT_BOLD_URL =
-    'https://fonts.gstatic.com/s/ibmplexsans/v19/zYX9KVElMYYaJe8bpLHnCwDKjSL9AIxsdP3pBmtF8A.woff2';
 
   private readonly logger = new Logger(ReportImageService.name);
 
@@ -79,8 +72,35 @@ export class ReportImageService {
         .slice()
         .sort((a, b) => a.reportMonth.localeCompare(b.reportMonth));
 
+      // Get sum of previous records before the first month in chart
+      let previousTotals = { certificatesValue: 0, totalInvestment: 0 };
+      if (chronologicalReports.length) {
+        const result = await this.monthlyInvestmentReportRepository
+          .createQueryBuilder('report')
+          .select(
+            'COALESCE(SUM(report.certificatesValue), 0)',
+            'certificatesValue',
+          )
+          .addSelect(
+            'COALESCE(SUM(report.totalInvestment), 0)',
+            'totalInvestment',
+          )
+          .where('report.fundName = :fundName', { fundName })
+          .andWhere('report.reportMonth < :firstMonth', {
+            firstMonth: chronologicalReports[0].reportMonth,
+          })
+          .getRawOne<{ certificatesValue: string; totalInvestment: string }>();
+
+        if (result) {
+          previousTotals = {
+            certificatesValue: Math.round(Number(result.certificatesValue)),
+            totalInvestment: Math.round(Number(result.totalInvestment)),
+          };
+        }
+      }
+
       const summary = await this.buildSummary(fundName, chronologicalReports);
-      const chart = this.buildChartData(chronologicalReports);
+      const chart = this.buildChartData(chronologicalReports, previousTotals);
       const chartUrl = this.generateChartUrl(chart);
       const templateData = this.buildTemplateData(summary, chartUrl);
 
@@ -116,13 +136,6 @@ export class ReportImageService {
     }
   }
 
-  private async loadFont(url: string): Promise<ArrayBuffer> {
-    const response = await axios.get<ArrayBuffer>(url, {
-      responseType: 'arraybuffer',
-    });
-    return response.data;
-  }
-
   private async buildSummary(
     fundName: string,
     reports: MonthlyInvestmentReport[],
@@ -150,13 +163,11 @@ export class ReportImageService {
     const profitRatio =
       totalInvestment > 0 ? (profitValue / totalInvestment) * 100 : 0;
 
-    const averageNavPrice =
-      reports.length > 0
-        ? reports.reduce(
-            (sum, report) => sum + Number(report.latestFundPrice),
-            0,
-          ) / reports.length
-        : navPrice;
+    // Count total invested months (all records in the table)
+    const totalInvestedMonths =
+      await this.monthlyInvestmentReportRepository.count({
+        where: { fundName },
+      });
 
     return {
       fundName,
@@ -167,12 +178,14 @@ export class ReportImageService {
       profitValue,
       profitRatio,
       navPrice,
-      averageNavPrice,
-      months: reports.length,
+      months: totalInvestedMonths,
     };
   }
 
-  private buildChartData(reports: MonthlyInvestmentReport[]): ChartData {
+  private buildChartData(
+    reports: MonthlyInvestmentReport[],
+    previousTotals: { certificatesValue: number; totalInvestment: number },
+  ): ChartData {
     if (!reports.length) {
       return {
         labels: ['Không có dữ liệu'],
@@ -181,16 +194,27 @@ export class ReportImageService {
       };
     }
 
+    // Start with cumulative totals from previous months
+    let cumulativeNav = previousTotals.certificatesValue;
+    let cumulativeInvestment = previousTotals.totalInvestment;
+
+    const navSeries: number[] = [];
+    const investmentSeries: number[] = [];
+
+    reports.forEach((report) => {
+      cumulativeNav += Math.round(Number(report.certificatesValue));
+      cumulativeInvestment += Math.round(Number(report.totalInvestment));
+
+      navSeries.push(cumulativeNav);
+      investmentSeries.push(cumulativeInvestment);
+    });
+
     return {
       labels: reports.map((report) =>
         this.formatMonthLabel(report.reportMonth),
       ),
-      navSeries: reports.map((report) =>
-        Math.round(Number(report.certificatesValue)),
-      ),
-      investmentSeries: reports.map((report) =>
-        Math.round(Number(report.totalInvestment)),
-      ),
+      navSeries,
+      investmentSeries,
     };
   }
 
@@ -277,7 +301,6 @@ export class ReportImageService {
       ),
       currentValueLabel: `${this.formatCurrency(summary.currentValue)} VNĐ`,
       navLabel: `${this.formatCurrency(summary.navPrice * 1000)} VNĐ`,
-      avgNavLabel: `${this.formatCurrency(summary.averageNavPrice * 1000)} VNĐ`,
       monthsLabel: summary.months ? `${summary.months} tháng` : '0 tháng',
       profitRatioLabel: `${profitPositive ? '+' : ''}${summary.profitRatio.toFixed(2)}%`,
       profitDescription: profitPositive
@@ -306,8 +329,9 @@ export class ReportImageService {
           <!-- Header Card -->
           <div style="display: flex; flex: 1; background-color: white; border-radius: 16px; padding: 20px; border: 1px solid #E2E8F0; align-items: center; justify-content: space-between;">
             <div style="display: flex; flex-direction: column;">
-              <span style="font-size: 28px; font-weight: 700; color: #0F172A;">${data.fundName}</span>
-              <span style="font-size: 14px; color: #475569; margin-top: 4px;">Thời gian: ${data.rangeLabel}</span>
+              <span style="font-size: 28px; font-weight: 700; color: #0F172A;">VN30 ETF</span>
+              <span style="font-size: 14px; color: #475569; margin-top: 4px;">Quỹ ETF DCVFM VN30 (Mã giao dịch: ${data.fundName})</span>
+              <span style="font-size: 14px; color: #475569; margin-top: 4px;">Bắt đầu từ ${data.rangeLabel}</span>
             </div>
             <div style="display: flex; width: 48px; height: 48px; background-color: #EFF6FF; border-radius: 12px; align-items: center; justify-content: center;">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2">
@@ -395,10 +419,6 @@ export class ReportImageService {
               <span style="font-size: 18px; font-weight: 700; color: #0F172A;">${data.navLabel}</span>
             </div>
             <div style="display: flex; flex-direction: column;">
-              <span style="font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase; margin-bottom: 4px;">NAV/CCQ Trung Bình</span>
-              <span style="font-size: 18px; font-weight: 700; color: #0F172A;">${data.avgNavLabel}</span>
-            </div>
-            <div style="display: flex; flex-direction: column;">
               <span style="font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase; margin-bottom: 4px;">Số Tháng Đầu Tư</span>
               <span style="font-size: 18px; font-weight: 700; color: #0F172A;">${data.monthsLabel}</span>
             </div>
@@ -461,8 +481,7 @@ export class ReportImageService {
       return 'Không có dữ liệu';
     }
     const first = reports[0].reportMonth;
-    const last = reports[reports.length - 1].reportMonth;
-    return `${this.formatMonthYear(first)} - ${this.formatMonthYear(last)}`;
+    return `${this.formatMonthYear(first)}`;
   }
 
   private formatMonthYear(value: string): string {

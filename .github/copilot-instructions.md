@@ -10,6 +10,7 @@ This project serves **three distinct client types**, each with isolated modules 
 - **Web** (`src/web/`) - Standard web application endpoints (Bearer auth)
 - **Telegram** (`src/telegram/`) - Telegram bot integration (Bearer auth)  
 - **AppScripts** (`src/appscripts/`) - Google AppScript integration (HMAC auth)
+- **Report** (`src/report/`) - For generating reports
 
 **Critical**: Each module is completely isolated and included separately in Swagger config ([src/config/swagger.config.ts](../src/config/swagger.config.ts)). When adding endpoints, they MUST be placed in the appropriate module or they won't appear in client-specific docs.
 
@@ -59,7 +60,8 @@ Four separate Swagger instances are configured ([src/config/swagger.config.ts](.
 1. `/api/docs/web` - Web module only
 2. `/api/docs/telegram` - Telegram module only  
 3. `/api/docs/appscripts` - AppScripts module only (shows HMAC auth)
-4. `/api/docs` - Complete API (all modules)
+4. `/api/docs/report` - Report module only
+5. `/api/docs` - Complete API (all modules)
 
 Export to JSON happens automatically on startup via `exportOpenApiJsonFiles()`.
 

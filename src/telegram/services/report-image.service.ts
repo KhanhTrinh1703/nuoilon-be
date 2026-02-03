@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { Injectable, Logger } from '@nestjs/common';
 import QuickChart from 'quickchart-js';
 import { promises as fs } from 'fs';
@@ -46,10 +45,6 @@ interface ChartData {
 @Injectable()
 export class ReportImageService {
   private static readonly DEFAULT_FUND = 'E1VFVN30';
-  private static readonly FONT_URL =
-    'https://fonts.gstatic.com/s/ibmplexsans/v19/zYXgKVElMYYaJe8bpLHnCwDKhd5013WhCL8V.woff2';
-  private static readonly FONT_BOLD_URL =
-    'https://fonts.gstatic.com/s/ibmplexsans/v19/zYX9KVElMYYaJe8bpLHnCwDKjSL9AIxsdP3pBmtF8A.woff2';
 
   private readonly logger = new Logger(ReportImageService.name);
 
@@ -114,13 +109,6 @@ export class ReportImageService {
       this.logger.error('Failed to generate report image', error);
       throw error;
     }
-  }
-
-  private async loadFont(url: string): Promise<ArrayBuffer> {
-    const response = await axios.get<ArrayBuffer>(url, {
-      responseType: 'arraybuffer',
-    });
-    return response.data;
   }
 
   private async buildSummary(
@@ -306,8 +294,9 @@ export class ReportImageService {
           <!-- Header Card -->
           <div style="display: flex; flex: 1; background-color: white; border-radius: 16px; padding: 20px; border: 1px solid #E2E8F0; align-items: center; justify-content: space-between;">
             <div style="display: flex; flex-direction: column;">
-              <span style="font-size: 28px; font-weight: 700; color: #0F172A;">${data.fundName}</span>
-              <span style="font-size: 14px; color: #475569; margin-top: 4px;">Thời gian: ${data.rangeLabel}</span>
+              <span style="font-size: 28px; font-weight: 700; color: #0F172A;">VN30 ETF</span>
+              <span style="font-size: 14px; color: #475569; margin-top: 4px;">Quỹ ETF DCVFM VN30 (Mã giao dịch: ${data.fundName})</span>
+              <span style="font-size: 14px; color: #475569; margin-top: 4px;">Bắt đầu từ ${data.rangeLabel}</span>
             </div>
             <div style="display: flex; width: 48px; height: 48px; background-color: #EFF6FF; border-radius: 12px; align-items: center; justify-content: center;">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2">
@@ -461,8 +450,7 @@ export class ReportImageService {
       return 'Không có dữ liệu';
     }
     const first = reports[0].reportMonth;
-    const last = reports[reports.length - 1].reportMonth;
-    return `${this.formatMonthYear(first)} - ${this.formatMonthYear(last)}`;
+    return `${this.formatMonthYear(first)}`;
   }
 
   private formatMonthYear(value: string): string {

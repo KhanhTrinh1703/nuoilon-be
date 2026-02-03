@@ -247,7 +247,9 @@ export class TelegramService implements OnModuleInit {
 
   private async handleReportImageCommand(ctx: Context): Promise<void> {
     if (this.isGeneratingReport) {
-      ctx.reply('⏳ Một báo cáo đang được tạo, vui lòng đợi...');
+      ctx.reply(
+        '⏳ Hệ thống đang bận xử lí báo cáo, vui lòng thử lại sau ít phút.',
+      );
       return;
     }
 
@@ -258,10 +260,7 @@ export class TelegramService implements OnModuleInit {
       const result = await this.reportImageService.generateReportImage();
 
       // send photo
-      await ctx.replyWithPhoto(
-        { source: result.buffer },
-        { caption: result.caption },
-      );
+      await ctx.replyWithPhoto({ source: result.buffer });
     } catch (error) {
       this.logger.error('Error generating report image:', error);
       ctx.reply('❌ Không thể tạo báo cáo ảnh, thử lại sau.');

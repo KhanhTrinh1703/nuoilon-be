@@ -1,0 +1,27 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { MonthlyInvestmentReport } from '../database/entities/monthly-investment-report.entity';
+import { ExcelTransaction } from '../database/entities/excel-transaction.entity';
+import { FundPrice } from '../database/entities/fund-price.entity';
+import { MonthlyInvestmentReportRepository } from './repositories/monthly-investment-report.repository';
+import { ReportService } from './report.service';
+import { ReportController } from './report.controller';
+import { DisableInProductionGuard } from '../common/guards/disable-in-production.guard';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      MonthlyInvestmentReport,
+      ExcelTransaction,
+      FundPrice,
+    ]),
+  ],
+  controllers: [ReportController],
+  providers: [
+    MonthlyInvestmentReportRepository,
+    ReportService,
+    DisableInProductionGuard,
+  ],
+  exports: [ReportService],
+})
+export class ReportModule {}

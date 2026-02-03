@@ -102,7 +102,9 @@ export class ReportImageService {
       const arrayBuffer = await image.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      await this.persistImage(buffer);
+      if (process.env.NODE_ENV !== 'production') {
+        await this.persistImage(buffer);
+      }
 
       return {
         buffer,

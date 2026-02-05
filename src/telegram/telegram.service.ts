@@ -101,8 +101,11 @@ export class TelegramService implements OnModuleInit {
         // Calculate metrics
         const navValue =
           Number(fundCertificates) * Number(fundPrice.price) * 1000;
-        const profitLoss =
-          totalCapital > 0 ? (navValue / totalCapital - 1) * 100 : 0;
+        const averageCost = Number(fundPrice.averageCost ?? 0);
+        const hasAverageCost = averageCost > 0;
+        const profitLoss = hasAverageCost
+          ? ((Number(fundPrice.price) - averageCost) / averageCost) * 100
+          : null;
 
         const formatNumber = (num: number) =>
           num.toLocaleString('vi-VN', {
@@ -124,15 +127,24 @@ export class TelegramService implements OnModuleInit {
             timeZone: 'Asia/Ho_Chi_Minh',
           });
 
+        const averageCostDisplay = hasAverageCost
+          ? `${formatNumber(averageCost * 1000)}`
+          : 'Chưa có dữ liệu';
+
+        const profitLossLine = hasAverageCost
+          ? `- ${profitLoss! >= 0 ? '✅ *Lợi nhuận:*' : '❌ *Lỗ:*'} ${formatDecimalNumber(Math.abs(profitLoss!))}%`
+          : '- *Lợi nhuận:* Chưa có dữ liệu giá vốn';
+
         const message =
-          `📊 *BÁO CÁO QUỸ ĐẦU TƯ*\n\n` +
-          `- *Số tháng đầu tư:* ${investmentMonths}\n` +
-          `- *Tổng vốn đầu tư:* ${formatNumber(totalCapital)} VNĐ\n` +
-          `- *Số CCQ:* ${formatNumber(fundCertificates)}\n` +
-          `- *Giá CCQ:* ${formatNumber(Number(fundPrice.price) * 1000)} VNĐ\n` +
+          `📊 *BÁO CÁO QUỸ ĐẦU TƯ E1VFVN30*\n\n` +
+          `- *Thời gian đầu tư:* ${investmentMonths} tháng \n` +
+          `- *Tổng vốn:* ${formatNumber(totalCapital)} VNĐ\n` +
           `- *Giá trị NAV:* ${formatNumber(navValue)} VNĐ\n` +
-          `${profitLoss >= 0 ? '✅ *Lợi nhuận:*' : '❌ *Lỗ:*'} ${formatDecimalNumber(Math.abs(profitLoss))}%\n\n` +
-          `_Giá CCQ cập nhật lúc ${formatTimestamp(fundPrice.updatedAt)}_`;
+          `- *Số CCQ:* ${formatNumber(fundCertificates)}\n` +
+          `- *Giá vốn:* ${averageCostDisplay}\n` +
+          `- *Giá CCQ:* ${formatNumber(Number(fundPrice.price) * 1000)}\n` +
+          `${profitLossLine}\n\n` +
+          `_Giá thị trường cập nhật lúc ${formatTimestamp(fundPrice.updatedAt)}_`;
 
         ctx.reply(message, { parse_mode: 'Markdown' });
       } catch (error) {

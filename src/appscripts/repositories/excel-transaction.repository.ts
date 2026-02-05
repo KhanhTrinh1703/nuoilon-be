@@ -14,6 +14,7 @@ export class ExcelTransactionRepository {
     transactionDate?: string;
     capital?: number;
     numberOfFundCertificate?: number;
+    price?: number;
     transactionId: string;
   }): Promise<ExcelTransaction> {
     const existing = await this.repository.findOne({
@@ -27,6 +28,7 @@ export class ExcelTransactionRepository {
         capital: data.capital ?? existing.capital,
         numberOfFundCertificate:
           data.numberOfFundCertificate ?? existing.numberOfFundCertificate,
+        price: data.price ?? existing.price,
       });
       return await this.repository.save(existing);
     } else {
@@ -34,5 +36,26 @@ export class ExcelTransactionRepository {
       const newTransaction = this.repository.create(data);
       return await this.repository.save(newTransaction);
     }
+  }
+
+  async getTotalCapital(): Promise<number> {
+    const result = await this.repository
+      .createQueryBuilder('transaction')
+      .select(
+        'SUM(transaction.numberOfFundCertificate * COALESCE(transaction.price, 0))',
+        'total',
+      )
+      .getRawOne<{ total: string }>();
+
+    return parseFloat(result?.total ?? '0') || 0;
+  }
+
+  async getTotalCertificates(): Promise<number> {
+    const result = await this.repository
+      .createQueryBuilder('transaction')
+      .select('SUM(transaction.numberOfFundCertificate)', 'total')
+      .getRawOne<{ total: string }>();
+
+    return parseFloat(result?.total ?? '0') || 0;
   }
 }

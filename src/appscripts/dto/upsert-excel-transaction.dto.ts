@@ -39,6 +39,15 @@ export class UpsertExcelTransactionDto {
   @Type(() => Number)
   numberOfFundCertificate?: number;
 
+  @ApiPropertyOptional({
+    description: 'Unit price per fund certificate',
+    example: 15.25,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  price?: number;
+
   @ApiProperty({
     description: 'Unique transaction identifier',
     example: 'TXN-2024-001',

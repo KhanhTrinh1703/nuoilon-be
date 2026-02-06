@@ -152,11 +152,13 @@ export class ReportImageService {
       : latestReport
         ? Number(latestReport.latestFundPrice)
         : 0;
+    const averageCost = fundPrice ? Number(fundPrice.averageCost ?? 0) : 0;
 
     const currentValue = totalCertificates * navPrice * 1000;
-    const profitValue = currentValue - totalCapital;
+    const investedCapital = averageCost * totalCertificates * 1000;
+    const profitValue = currentValue - investedCapital;
     const profitRatio =
-      totalCapital > 0 ? (profitValue / totalCapital) * 100 : 0;
+      averageCost > 0 ? ((navPrice - averageCost) / averageCost) * 100 : 0;
 
     const totalInvestedMonths =
       await this.monthlyInvestmentReportRepository.count({

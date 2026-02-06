@@ -7,17 +7,24 @@ export class MonthlyReportResponseDto {
   @ApiProperty({ example: 'E1VFVN30' })
   fundName: string;
 
-  @ApiProperty({ example: 15000000.5 })
-  totalInvestment: number;
+  /** Cumulative capital from inception to the report month. */
+  @ApiProperty({ example: 25000000 })
+  totalCapital: number;
 
-  @ApiProperty({ example: 123.4567 })
+  /** Cumulative certificates from inception to the report month. */
+  @ApiProperty({ example: 2187.72 })
   totalCertificates: number;
+
+  /** Capital transacted within the report month only. */
+  @ApiProperty({ example: 5000000 })
+  capitalInMonth: number;
+
+  /** Certificates transacted within the report month only. */
+  @ApiProperty({ example: 420.88 })
+  certificatesInMonth: number;
 
   @ApiProperty({ example: 24.56 })
   latestFundPrice: number;
-
-  @ApiProperty({ example: 3024000 })
-  certificatesValue: number;
 
   @ApiProperty({ example: '2024-01-31T15:00:00.000Z' })
   updatedAt: string;

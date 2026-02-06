@@ -41,16 +41,15 @@ export class ReportService {
     }
 
     const latestFundPrice = Number(fundPrice.price);
-    const certificatesValue =
-      aggregates.totalCertificates * latestFundPrice * 1000;
 
     const report = await this.monthlyInvestmentReportRepository.upsertReport({
       reportMonth: normalizedMonth,
       fundName: trimmedFundName,
-      totalInvestment: aggregates.totalInvestment,
+      totalCapital: aggregates.totalCapital,
       totalCertificates: aggregates.totalCertificates,
+      capitalInMonth: aggregates.capitalInMonth,
+      certificatesInMonth: aggregates.certificatesInMonth,
       latestFundPrice,
-      certificatesValue,
     });
 
     return this.toResponse(report);
@@ -111,10 +110,11 @@ export class ReportService {
     return {
       reportMonth: report.reportMonth,
       fundName: report.fundName,
-      totalInvestment: Number(report.totalInvestment),
+      totalCapital: Number(report.totalCapital),
       totalCertificates: Number(report.totalCertificates),
+      capitalInMonth: Number(report.capitalInMonth),
+      certificatesInMonth: Number(report.certificatesInMonth),
       latestFundPrice: Number(report.latestFundPrice),
-      certificatesValue: Number(report.certificatesValue),
       updatedAt: report.updatedAt.toISOString(),
     };
   }

@@ -4,9 +4,10 @@ import { AppscriptsController } from './appscripts.controller';
 import { AppscriptsService } from './appscripts.service';
 import { ExcelTransactionRepository } from './repositories/excel-transaction.repository';
 import { ExcelTransaction } from '../database/entities/excel-transaction.entity';
+import { FundPrice } from '../database/entities/fund-price.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ExcelTransaction])],
+  imports: [TypeOrmModule.forFeature([ExcelTransaction, FundPrice])],
   controllers: [AppscriptsController],
   providers: [AppscriptsService, ExcelTransactionRepository],
 })

@@ -1,10 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { VersioningType } from '@nestjs/common';
+import { Logger, VersioningType } from '@nestjs/common';
 import { setupSwaggerDocs } from './config/swagger.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
+  const appMode = process.env.APP_MODE ?? 'web';
+
+  logger.log(`APP_MODE=${appMode}`);
 
   // Set global prefix
   app.setGlobalPrefix('api');

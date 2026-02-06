@@ -37,25 +37,4 @@ export class ExcelTransactionRepository {
       return await this.repository.save(newTransaction);
     }
   }
-
-  async getTotalCapital(): Promise<number> {
-    const result = await this.repository
-      .createQueryBuilder('transaction')
-      .select(
-        'SUM(transaction.numberOfFundCertificate * COALESCE(transaction.price, 0))',
-        'total',
-      )
-      .getRawOne<{ total: string }>();
-
-    return parseFloat(result?.total ?? '0') || 0;
-  }
-
-  async getTotalCertificates(): Promise<number> {
-    const result = await this.repository
-      .createQueryBuilder('transaction')
-      .select('SUM(transaction.numberOfFundCertificate)', 'total')
-      .getRawOne<{ total: string }>();
-
-    return parseFloat(result?.total ?? '0') || 0;
-  }
 }

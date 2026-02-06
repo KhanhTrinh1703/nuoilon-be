@@ -49,7 +49,7 @@ docker run -d \
   --name nuoilon-schedule \
   -p 3000:3000 \
   --env-file ./docker/schedule.env \
-  -v logs:/app/logs \
+  -v "{path_to_your_local_machine}\logs:/app/logs" \
   nuoilon-be-schedule
 ```
 

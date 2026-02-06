@@ -20,6 +20,9 @@ export class ExcelTransaction {
   @Column({ type: 'decimal', precision: 15, scale: 4, nullable: true })
   numberOfFundCertificate: number;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  price: number;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   transactionId: string;
 

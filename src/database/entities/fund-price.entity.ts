@@ -17,6 +17,9 @@ export class FundPrice {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price: number;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  averageCost: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

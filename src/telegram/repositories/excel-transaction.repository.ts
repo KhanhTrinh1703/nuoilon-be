@@ -44,4 +44,23 @@ export class ExcelTransactionRepository {
 
     return parseInt(result?.distinctMonths ?? '0') || 0;
   }
+
+  async hasTransactionsForMonth(month: string): Promise<boolean> {
+    const [year, monthValue] = month.split('-');
+    const startDate = new Date(
+      Date.UTC(Number(year), Number(monthValue) - 1, 1, 0, 0, 0, 0),
+    );
+    const endDate = new Date(
+      Date.UTC(Number(year), Number(monthValue), 1, 0, 0, 0, 0),
+    );
+
+    const count = await this.repository
+      .createQueryBuilder('transaction')
+      .where('transaction.transactionDate IS NOT NULL')
+      .andWhere('transaction.transactionDate >= :startDate', { startDate })
+      .andWhere('transaction.transactionDate < :endDate', { endDate })
+      .getCount();
+
+    return count > 0;
+  }
 }

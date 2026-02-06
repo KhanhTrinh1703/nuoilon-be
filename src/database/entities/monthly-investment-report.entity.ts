@@ -19,17 +19,24 @@ export class MonthlyInvestmentReport {
   @Column({ type: 'varchar', length: 255 })
   fundName: string;
 
-  @Column({ type: 'decimal', precision: 15, scale: 2, default: () => '0' })
-  totalInvestment: number;
+  /** Cumulative capital from inception to the report month. */
+  @Column({ type: 'decimal', precision: 18, scale: 2, default: () => '0' })
+  totalCapital: number;
 
-  @Column({ type: 'decimal', precision: 15, scale: 4, default: () => '0' })
+  /** Cumulative certificates from inception to the report month. */
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: () => '0' })
   totalCertificates: number;
+
+  /** Capital transacted within the report month only. */
+  @Column({ type: 'decimal', precision: 18, scale: 2, default: () => '0' })
+  capitalInMonth: number;
+
+  /** Certificates transacted within the report month only. */
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: () => '0' })
+  certificatesInMonth: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: () => '0' })
   latestFundPrice: number;
-
-  @Column({ type: 'decimal', precision: 18, scale: 2, default: () => '0' })
-  certificatesValue: number;
 
   @CreateDateColumn()
   createdAt: Date;

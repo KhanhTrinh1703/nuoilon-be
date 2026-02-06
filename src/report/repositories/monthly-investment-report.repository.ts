@@ -10,47 +10,65 @@ export class MonthlyInvestmentReportRepository extends Repository<MonthlyInvestm
   }
 
   async calculateMonthlyAggregates(month: string): Promise<{
-    totalInvestment: number;
+    capitalInMonth: number;
+    certificatesInMonth: number;
+    totalCapital: number;
     totalCertificates: number;
   }> {
     const { startDate, endDate } = this.buildDateRange(month);
 
-    const raw = await this.dataSource
+    const monthlyRaw = await this.dataSource
       .getRepository(ExcelTransaction)
       .createQueryBuilder('transaction')
-      .select('COALESCE(SUM(transaction.capital), 0)', 'totalInvestment')
+      .select('COALESCE(SUM(transaction.capital), 0)', 'capitalInMonth')
+      .addSelect(
+        'COALESCE(SUM(transaction.numberOfFundCertificate), 0)',
+        'certificatesInMonth',
+      )
+      .where('transaction.transactionDate IS NOT NULL')
+      .andWhere('transaction.transactionDate >= :startDate', { startDate })
+      .andWhere('transaction.transactionDate < :endDate', { endDate })
+      .getRawOne<{ capitalInMonth: string; certificatesInMonth: string }>();
+
+    const cumulativeRaw = await this.dataSource
+      .getRepository(ExcelTransaction)
+      .createQueryBuilder('transaction')
+      .select('COALESCE(SUM(transaction.capital), 0)', 'totalCapital')
       .addSelect(
         'COALESCE(SUM(transaction.numberOfFundCertificate), 0)',
         'totalCertificates',
       )
       .where('transaction.transactionDate IS NOT NULL')
-      .andWhere('transaction.transactionDate >= :startDate', { startDate })
       .andWhere('transaction.transactionDate < :endDate', { endDate })
-      .getRawOne<{ totalInvestment: string; totalCertificates: string }>();
+      .getRawOne<{ totalCapital: string; totalCertificates: string }>();
 
     return {
-      totalInvestment: parseFloat(raw?.totalInvestment ?? '0'),
-      totalCertificates: parseFloat(raw?.totalCertificates ?? '0'),
+      capitalInMonth: parseFloat(monthlyRaw?.capitalInMonth ?? '0'),
+      certificatesInMonth: parseFloat(monthlyRaw?.certificatesInMonth ?? '0'),
+      totalCapital: parseFloat(cumulativeRaw?.totalCapital ?? '0'),
+      totalCertificates: parseFloat(cumulativeRaw?.totalCertificates ?? '0'),
     };
   }
 
   async upsertReport(payload: {
     reportMonth: string;
     fundName: string;
-    totalInvestment: number;
+    totalCapital: number;
     totalCertificates: number;
+    capitalInMonth: number;
+    certificatesInMonth: number;
     latestFundPrice: number;
-    certificatesValue: number;
   }): Promise<MonthlyInvestmentReport> {
     const existing = await this.findOne({
       where: { reportMonth: payload.reportMonth, fundName: payload.fundName },
     });
 
     if (existing) {
-      existing.totalInvestment = payload.totalInvestment;
+      existing.totalCapital = payload.totalCapital;
       existing.totalCertificates = payload.totalCertificates;
+      existing.capitalInMonth = payload.capitalInMonth;
+      existing.certificatesInMonth = payload.certificatesInMonth;
       existing.latestFundPrice = payload.latestFundPrice;
-      existing.certificatesValue = payload.certificatesValue;
       return this.save(existing);
     }
 

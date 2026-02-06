@@ -7,7 +7,9 @@ import { MonthlyInvestmentReport } from '../src/database/entities/monthly-invest
 dotenv.config();
 
 type AggregateResult = {
-  totalInvestment: number;
+  capitalInMonth: number;
+  certificatesInMonth: number;
+  totalCapital: number;
   totalCertificates: number;
 };
 
@@ -64,22 +66,40 @@ async function aggregateMonthlyTransactions(
   const startDate = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0, 0));
   const endDate = new Date(Date.UTC(year, monthIndex + 1, 1, 0, 0, 0, 0));
 
-  const raw = await dataSource
+  console.log(
+    `🔍 Aggregating transactions from ${startDate.toISOString()} to ${endDate.toISOString()}`,
+  );
+
+  const monthlyRaw = await dataSource
     .getRepository(ExcelTransaction)
     .createQueryBuilder('transaction')
-    .select('COALESCE(SUM(transaction.capital), 0)', 'totalInvestment')
+    .select('COALESCE(SUM(transaction.capital), 0)', 'capitalInMonth')
+    .addSelect(
+      'COALESCE(SUM(transaction.numberOfFundCertificate), 0)',
+      'certificatesInMonth',
+    )
+    .where('transaction.transactionDate IS NOT NULL')
+    .andWhere('transaction.transactionDate >= :startDate', { startDate })
+    .andWhere('transaction.transactionDate < :endDate', { endDate })
+    .getRawOne<{ capitalInMonth: string; certificatesInMonth: string }>();
+
+  const cumulativeRaw = await dataSource
+    .getRepository(ExcelTransaction)
+    .createQueryBuilder('transaction')
+    .select('COALESCE(SUM(transaction.capital), 0)', 'totalCapital')
     .addSelect(
       'COALESCE(SUM(transaction.numberOfFundCertificate), 0)',
       'totalCertificates',
     )
     .where('transaction.transactionDate IS NOT NULL')
-    .andWhere('transaction.transactionDate >= :startDate', { startDate })
     .andWhere('transaction.transactionDate < :endDate', { endDate })
-    .getRawOne<{ totalInvestment: string; totalCertificates: string }>();
+    .getRawOne<{ totalCapital: string; totalCertificates: string }>();
 
   return {
-    totalInvestment: parseFloat(raw?.totalInvestment ?? '0'),
-    totalCertificates: parseFloat(raw?.totalCertificates ?? '0'),
+    capitalInMonth: parseFloat(monthlyRaw?.capitalInMonth ?? '0'),
+    certificatesInMonth: parseFloat(monthlyRaw?.certificatesInMonth ?? '0'),
+    totalCapital: parseFloat(cumulativeRaw?.totalCapital ?? '0'),
+    totalCertificates: parseFloat(cumulativeRaw?.totalCertificates ?? '0'),
   };
 }
 
@@ -88,10 +108,11 @@ async function upsertMonthlyReport(
   payload: {
     reportMonth: string;
     fundName: string;
-    totalInvestment: number;
+    totalCapital: number;
     totalCertificates: number;
+    capitalInMonth: number;
+    certificatesInMonth: number;
     latestFundPrice: number;
-    certificatesValue: number;
   },
 ): Promise<void> {
   const repository = dataSource.getRepository(MonthlyInvestmentReport);
@@ -153,16 +174,15 @@ async function run(): Promise<void> {
     }
 
     const latestFundPrice = Number(fundPrice.price);
-    const certificatesValue =
-      aggregates.totalCertificates * latestFundPrice * 1000;
 
     await upsertMonthlyReport(dataSource, {
       reportMonth,
       fundName,
-      totalInvestment: aggregates.totalInvestment,
+      totalCapital: aggregates.totalCapital,
       totalCertificates: aggregates.totalCertificates,
+      capitalInMonth: aggregates.capitalInMonth,
+      certificatesInMonth: aggregates.certificatesInMonth,
       latestFundPrice,
-      certificatesValue,
     });
 
     console.log('✅ Monthly report generation completed successfully.');

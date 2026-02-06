@@ -4,12 +4,13 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { MonthlyInvestmentReportRepository } from '../../report/repositories/monthly-investment-report.repository';
 import { FundPriceRepository } from '../repositories/fund-price.repository';
+import { ExcelTransactionRepository } from '../repositories/excel-transaction.repository';
 import { MonthlyInvestmentReport } from '../../database/entities/monthly-investment-report.entity';
 
 interface ReportSummary {
   fundName: string;
   rangeLabel: string;
-  totalInvestment: number;
+  totalCapital: number;
   totalCertificates: number;
   currentValue: number;
   profitValue: number;
@@ -49,6 +50,7 @@ export class ReportImageService {
   constructor(
     private readonly monthlyInvestmentReportRepository: MonthlyInvestmentReportRepository,
     private readonly fundPriceRepository: FundPriceRepository,
+    private readonly excelTransactionRepository: ExcelTransactionRepository,
   ) {}
 
   async generateReportImage(options?: {
@@ -60,7 +62,7 @@ export class ReportImageService {
         options?.fundName?.trim() || ReportImageService.DEFAULT_FUND;
       const months = options?.months ?? 12;
 
-      const reports: MonthlyInvestmentReport[] =
+      let reports: MonthlyInvestmentReport[] =
         await this.monthlyInvestmentReportRepository
           .createQueryBuilder('report')
           .where('report.fundName = :fundName', { fundName })
@@ -68,39 +70,34 @@ export class ReportImageService {
           .limit(months)
           .getMany();
 
+      // Check if current month exists in MonthlyInvestmentReport
+      const currentMonth = this.getCurrentMonthString();
+      const currentMonthExists = reports.some(
+        (r) => r.reportMonth === currentMonth,
+      );
+
+      // If current month doesn't exist in reports, check ExcelTransaction
+      if (!currentMonthExists) {
+        const latestReport = reports.length ? reports[0] : null;
+        const currentMonthData =
+          await this.generateCurrentMonthFromTransactions(
+            fundName,
+            latestReport,
+          );
+        if (currentMonthData) {
+          this.logger.log(
+            `Generated current month (${currentMonth}) data from ExcelTransaction`,
+          );
+          reports = [...reports, currentMonthData];
+        }
+      }
+
       const chronologicalReports: MonthlyInvestmentReport[] = reports
         .slice()
         .sort((a, b) => a.reportMonth.localeCompare(b.reportMonth));
 
-      // Get sum of previous records before the first month in chart
-      let previousTotals = { certificatesValue: 0, totalInvestment: 0 };
-      if (chronologicalReports.length) {
-        const result = await this.monthlyInvestmentReportRepository
-          .createQueryBuilder('report')
-          .select(
-            'COALESCE(SUM(report.certificatesValue), 0)',
-            'certificatesValue',
-          )
-          .addSelect(
-            'COALESCE(SUM(report.totalInvestment), 0)',
-            'totalInvestment',
-          )
-          .where('report.fundName = :fundName', { fundName })
-          .andWhere('report.reportMonth < :firstMonth', {
-            firstMonth: chronologicalReports[0].reportMonth,
-          })
-          .getRawOne<{ certificatesValue: string; totalInvestment: string }>();
-
-        if (result) {
-          previousTotals = {
-            certificatesValue: Math.round(Number(result.certificatesValue)),
-            totalInvestment: Math.round(Number(result.totalInvestment)),
-          };
-        }
-      }
-
       const summary = await this.buildSummary(fundName, chronologicalReports);
-      const chart = this.buildChartData(chronologicalReports, previousTotals);
+      const chart = this.buildChartData(chronologicalReports);
       const chartUrl = this.generateChartUrl(chart);
       const templateData = this.buildTemplateData(summary, chartUrl);
 
@@ -144,9 +141,7 @@ export class ReportImageService {
       ? reports[reports.length - 1]
       : undefined;
 
-    const totalInvestment = latestReport
-      ? Number(latestReport.totalInvestment)
-      : 0;
+    const totalCapital = latestReport ? Number(latestReport.totalCapital) : 0;
     const totalCertificates = latestReport
       ? Number(latestReport.totalCertificates)
       : 0;
@@ -159,11 +154,10 @@ export class ReportImageService {
         : 0;
 
     const currentValue = totalCertificates * navPrice * 1000;
-    const profitValue = currentValue - totalInvestment;
+    const profitValue = currentValue - totalCapital;
     const profitRatio =
-      totalInvestment > 0 ? (profitValue / totalInvestment) * 100 : 0;
+      totalCapital > 0 ? (profitValue / totalCapital) * 100 : 0;
 
-    // Count total invested months (all records in the table)
     const totalInvestedMonths =
       await this.monthlyInvestmentReportRepository.count({
         where: { fundName },
@@ -172,7 +166,7 @@ export class ReportImageService {
     return {
       fundName,
       rangeLabel: this.buildRangeLabel(reports),
-      totalInvestment,
+      totalCapital,
       totalCertificates,
       currentValue,
       profitValue,
@@ -182,10 +176,7 @@ export class ReportImageService {
     };
   }
 
-  private buildChartData(
-    reports: MonthlyInvestmentReport[],
-    previousTotals: { certificatesValue: number; totalInvestment: number },
-  ): ChartData {
+  private buildChartData(reports: MonthlyInvestmentReport[]): ChartData {
     if (!reports.length) {
       return {
         labels: ['Không có dữ liệu'],
@@ -194,20 +185,16 @@ export class ReportImageService {
       };
     }
 
-    // Start with cumulative totals from previous months
-    let cumulativeNav = previousTotals.certificatesValue;
-    let cumulativeInvestment = previousTotals.totalInvestment;
-
-    const navSeries: number[] = [];
-    const investmentSeries: number[] = [];
-
-    reports.forEach((report) => {
-      cumulativeNav += Math.round(Number(report.certificatesValue));
-      cumulativeInvestment += Math.round(Number(report.totalInvestment));
-
-      navSeries.push(cumulativeNav);
-      investmentSeries.push(cumulativeInvestment);
-    });
+    const navSeries = reports.map((report) =>
+      Math.round(
+        Number(report.totalCertificates) *
+          Number(report.latestFundPrice) *
+          1000,
+      ),
+    );
+    const investmentSeries = reports.map((report) =>
+      Math.round(Number(report.totalCapital)),
+    );
 
     return {
       labels: reports.map((report) =>
@@ -295,7 +282,7 @@ export class ReportImageService {
     return {
       fundName: summary.fundName,
       rangeLabel: summary.rangeLabel,
-      totalInvestmentLabel: `${this.formatCurrency(summary.totalInvestment)} VNĐ`,
+      totalInvestmentLabel: `${this.formatCurrency(summary.totalCapital)} VNĐ`,
       totalCertificatesLabel: this.formatCertificates(
         summary.totalCertificates,
       ),
@@ -487,5 +474,73 @@ export class ReportImageService {
   private formatMonthYear(value: string): string {
     const [year, month] = value.split('-');
     return `${month}/${year}`;
+  }
+
+  private getCurrentMonthString(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  }
+
+  private async generateCurrentMonthFromTransactions(
+    fundName: string,
+    previousReport?: MonthlyInvestmentReport | null,
+  ): Promise<MonthlyInvestmentReport | null> {
+    const currentMonth = this.getCurrentMonthString();
+
+    // Check if there are transactions for current month
+    const hasTransactions = await this.hasTransactionsForMonth(currentMonth);
+    if (!hasTransactions) {
+      return null;
+    }
+
+    // Calculate aggregates for current month
+    const aggregates =
+      await this.monthlyInvestmentReportRepository.calculateMonthlyAggregates(
+        currentMonth,
+      );
+
+    if (
+      aggregates.capitalInMonth === 0 &&
+      aggregates.certificatesInMonth === 0
+    ) {
+      return null;
+    }
+
+    const previousTotalCapital = previousReport
+      ? Number(previousReport.totalCapital)
+      : 0;
+    const previousTotalCertificates = previousReport
+      ? Number(previousReport.totalCertificates)
+      : 0;
+
+    const totalCapital = previousTotalCapital + aggregates.capitalInMonth;
+    const totalCertificates =
+      previousTotalCertificates + aggregates.certificatesInMonth;
+
+    // Get latest fund price
+    const fundPrice = await this.fundPriceRepository.findByName(fundName);
+    const latestFundPrice = fundPrice
+      ? Number(fundPrice.price)
+      : previousReport
+        ? Number(previousReport.latestFundPrice)
+        : 0;
+
+    // Create a temporary MonthlyInvestmentReport object (not persisted to DB)
+    const tempReport = new MonthlyInvestmentReport();
+    tempReport.reportMonth = currentMonth;
+    tempReport.fundName = fundName;
+    tempReport.totalCapital = totalCapital;
+    tempReport.totalCertificates = totalCertificates;
+    tempReport.capitalInMonth = aggregates.capitalInMonth;
+    tempReport.certificatesInMonth = aggregates.certificatesInMonth;
+    tempReport.latestFundPrice = latestFundPrice;
+
+    return tempReport;
+  }
+
+  private async hasTransactionsForMonth(month: string): Promise<boolean> {
+    return this.excelTransactionRepository.hasTransactionsForMonth(month);
   }
 }

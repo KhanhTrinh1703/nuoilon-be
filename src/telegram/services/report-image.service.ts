@@ -160,10 +160,7 @@ export class ReportImageService {
     const profitRatio =
       averageCost > 0 ? ((navPrice - averageCost) / averageCost) * 100 : 0;
 
-    const totalInvestedMonths =
-      await this.monthlyInvestmentReportRepository.count({
-        where: { fundName },
-      });
+    const totalInvestedMonths = reports.length ? reports.length : 0;
 
     return {
       fundName,

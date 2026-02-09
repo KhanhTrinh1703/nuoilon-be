@@ -12,7 +12,8 @@ export class FundPriceCrawlerService {
 
   constructor(private readonly fundPriceRepository: FundPriceRepository) {}
 
-  @Cron('*/5 * * * *')
+  // Runs every 15 minutes from Monday to Friday
+  @Cron('*/15 * * * 1-5')
   async handleCron(): Promise<void> {
     let browser: Browser | null = null;
 

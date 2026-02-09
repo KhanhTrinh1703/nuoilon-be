@@ -284,6 +284,12 @@ SUPABASE_STORAGE_BUCKET=telegram-uploads
 SUPABASE_UPLOAD_FOLDER=images
 ```
 
+## Github Copilot Instructions
+Check coding guidelines instructions
+- **NestJS Instructions**: `.github/instructions/nestjs.instructions.md`
+- **TypeScript Instructions**: `.github/instructions/typescript-5-es2022.md`
+- **Docker Instructions**: `.github/instructions/containerization-docker-best-practices.instructions.md`
+
 ## Common Gotchas
 - **Module isolation**: Endpoints missing from Swagger? Check module is included in `setupSwaggerDocs()`
 - **Database mode**: Switching local↔cloud requires removing/adding `DATABASE_URL`, not changing other vars

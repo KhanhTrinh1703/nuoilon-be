@@ -1,4 +1,5 @@
-# Nuoilon Backend - Copilot Instructions
+# AGENTS.md
+
 
 ## Project Overview
 NestJS 11 backend with **multi-client architecture** (Web, Telegram, AppScripts, Report) for a fund management/transaction tracking application. Uses TypeORM with PostgreSQL, supports both local and cloud (NeonDB) databases, includes scheduled fund price crawling, and integrates with Supabase Storage for Telegram image uploads.

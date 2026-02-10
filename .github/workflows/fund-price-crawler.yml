@@ -9,6 +9,11 @@ on:
 
 jobs:
   crawl:
+    strategy:
+      matrix:
+        environment: [develop, production] # List your environments here
+    environment: ${{ matrix.environment }}
+
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

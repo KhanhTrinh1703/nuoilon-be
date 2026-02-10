@@ -1,5 +1,6 @@
 export default () => ({
   port: parseInt(process.env.PORT ?? '3000', 10) || 3000,
+  appMode: process.env.APP_MODE || 'web',
   database: {
     // Cloud connection (NeonDB) - takes priority if present
     url: process.env.DATABASE_URL,

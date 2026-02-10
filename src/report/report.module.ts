@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MonthlyInvestmentReport } from '../database/entities/monthly-investment-report.entity';
-import { ExcelTransaction } from '../database/entities/excel-transaction.entity';
+import { DepositTransaction } from '../database/entities/deposit-transaction.entity';
+import { CertificateTransaction } from '../database/entities/certificate-transaction.entity';
 import { FundPrice } from '../database/entities/fund-price.entity';
 import { MonthlyInvestmentReportRepository } from './repositories/monthly-investment-report.repository';
 import { ReportService } from './report.service';
@@ -12,7 +13,8 @@ import { DisableInProductionGuard } from '../common/guards/disable-in-production
   imports: [
     TypeOrmModule.forFeature([
       MonthlyInvestmentReport,
-      ExcelTransaction,
+      DepositTransaction,
+      CertificateTransaction,
       FundPrice,
     ]),
   ],

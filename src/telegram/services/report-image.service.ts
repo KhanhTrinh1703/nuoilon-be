@@ -4,7 +4,8 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { MonthlyInvestmentReportRepository } from '../../report/repositories/monthly-investment-report.repository';
 import { FundPriceRepository } from '../repositories/fund-price.repository';
-import { ExcelTransactionRepository } from '../repositories/excel-transaction.repository';
+import { DepositTransactionRepository } from '../repositories/deposit-transaction.repository';
+import { CertificateTransactionRepository } from '../repositories/certificate-transaction.repository';
 import { MonthlyInvestmentReport } from '../../database/entities/monthly-investment-report.entity';
 
 interface ReportSummary {
@@ -50,7 +51,8 @@ export class ReportImageService {
   constructor(
     private readonly monthlyInvestmentReportRepository: MonthlyInvestmentReportRepository,
     private readonly fundPriceRepository: FundPriceRepository,
-    private readonly excelTransactionRepository: ExcelTransactionRepository,
+    private readonly depositTransactionRepository: DepositTransactionRepository,
+    private readonly certificateTransactionRepository: CertificateTransactionRepository,
   ) {}
 
   async generateReportImage(options?: {
@@ -86,7 +88,7 @@ export class ReportImageService {
           );
         if (currentMonthData) {
           this.logger.log(
-            `Generated current month (${currentMonth}) data from ExcelTransaction`,
+            `Generated current month (${currentMonth}) data from transactions`,
           );
           reports = [...reports, currentMonthData];
         }
@@ -154,8 +156,8 @@ export class ReportImageService {
         : 0;
     const averageCost = fundPrice ? Number(fundPrice.averageCost ?? 0) : 0;
 
-    const currentValue = totalCertificates * navPrice * 1000;
-    const investedCapital = averageCost * totalCertificates * 1000;
+    const currentValue = totalCertificates * navPrice;
+    const investedCapital = averageCost * totalCertificates;
     const profitValue = currentValue - investedCapital;
     const profitRatio =
       averageCost > 0 ? ((navPrice - averageCost) / averageCost) * 100 : 0;
@@ -186,9 +188,7 @@ export class ReportImageService {
 
     const navSeries = reports.map((report) =>
       Math.round(
-        Number(report.totalCertificates) *
-          Number(report.latestFundPrice) *
-          1000,
+        Number(report.totalCertificates) * Number(report.latestFundPrice),
       ),
     );
     const investmentSeries = reports.map((report) =>
@@ -286,7 +286,7 @@ export class ReportImageService {
         summary.totalCertificates,
       ),
       currentValueLabel: `${this.formatCurrency(summary.currentValue)} VNĐ`,
-      navLabel: `${this.formatCurrency(summary.navPrice * 1000)} VNĐ`,
+      navLabel: `${this.formatCurrency(summary.navPrice)} VNĐ`,
       monthsLabel: summary.months ? `${summary.months} tháng` : '0 tháng',
       profitRatioLabel: `${profitPositive ? '+' : ''}${summary.profitRatio.toFixed(2)}%`,
       profitDescription: profitPositive
@@ -540,6 +540,11 @@ export class ReportImageService {
   }
 
   private async hasTransactionsForMonth(month: string): Promise<boolean> {
-    return this.excelTransactionRepository.hasTransactionsForMonth(month);
+    const [hasDeposits, hasCertificates] = await Promise.all([
+      this.depositTransactionRepository.hasTransactionsForMonth(month),
+      this.certificateTransactionRepository.hasTransactionsForMonth(month),
+    ]);
+
+    return hasDeposits || hasCertificates;
   }
 }

@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { MonthlyInvestmentReport } from '../../database/entities/monthly-investment-report.entity';
-import { ExcelTransaction } from '../../database/entities/excel-transaction.entity';
+import { DepositTransaction } from '../../database/entities/deposit-transaction.entity';
+import { CertificateTransaction } from '../../database/entities/certificate-transaction.entity';
 
 @Injectable()
 export class MonthlyInvestmentReportRepository extends Repository<MonthlyInvestmentReport> {
@@ -17,36 +18,42 @@ export class MonthlyInvestmentReportRepository extends Repository<MonthlyInvestm
   }> {
     const { startDate, endDate } = this.buildDateRange(month);
 
-    const monthlyRaw = await this.dataSource
-      .getRepository(ExcelTransaction)
-      .createQueryBuilder('transaction')
-      .select('COALESCE(SUM(transaction.capital), 0)', 'capitalInMonth')
-      .addSelect(
-        'COALESCE(SUM(transaction.numberOfFundCertificate), 0)',
-        'certificatesInMonth',
-      )
-      .where('transaction.transactionDate IS NOT NULL')
-      .andWhere('transaction.transactionDate >= :startDate', { startDate })
-      .andWhere('transaction.transactionDate < :endDate', { endDate })
-      .getRawOne<{ capitalInMonth: string; certificatesInMonth: string }>();
+    const depositRepository = this.dataSource.getRepository(DepositTransaction);
+    const certificateRepository = this.dataSource.getRepository(
+      CertificateTransaction,
+    );
 
-    const cumulativeRaw = await this.dataSource
-      .getRepository(ExcelTransaction)
-      .createQueryBuilder('transaction')
-      .select('COALESCE(SUM(transaction.capital), 0)', 'totalCapital')
-      .addSelect(
-        'COALESCE(SUM(transaction.numberOfFundCertificate), 0)',
-        'totalCertificates',
-      )
-      .where('transaction.transactionDate IS NOT NULL')
-      .andWhere('transaction.transactionDate < :endDate', { endDate })
-      .getRawOne<{ totalCapital: string; totalCertificates: string }>();
+    const capitalInMonthRaw = await depositRepository
+      .createQueryBuilder('deposit')
+      .select('COALESCE(SUM(deposit.capital), 0)', 'total')
+      .where('deposit.transactionDate >= :startDate', { startDate })
+      .andWhere('deposit.transactionDate < :endDate', { endDate })
+      .getRawOne<{ total: string }>();
+
+    const certificatesInMonthRaw = await certificateRepository
+      .createQueryBuilder('cert')
+      .select('COALESCE(SUM(cert.numberOfCertificates), 0)', 'total')
+      .where('cert.transactionDate >= :startDate', { startDate })
+      .andWhere('cert.transactionDate < :endDate', { endDate })
+      .getRawOne<{ total: string }>();
+
+    const totalCapitalRaw = await depositRepository
+      .createQueryBuilder('deposit')
+      .select('COALESCE(SUM(deposit.capital), 0)', 'total')
+      .where('deposit.transactionDate < :endDate', { endDate })
+      .getRawOne<{ total: string }>();
+
+    const totalCertificatesRaw = await certificateRepository
+      .createQueryBuilder('cert')
+      .select('COALESCE(SUM(cert.numberOfCertificates), 0)', 'total')
+      .where('cert.transactionDate < :endDate', { endDate })
+      .getRawOne<{ total: string }>();
 
     return {
-      capitalInMonth: parseFloat(monthlyRaw?.capitalInMonth ?? '0'),
-      certificatesInMonth: parseFloat(monthlyRaw?.certificatesInMonth ?? '0'),
-      totalCapital: parseFloat(cumulativeRaw?.totalCapital ?? '0'),
-      totalCertificates: parseFloat(cumulativeRaw?.totalCertificates ?? '0'),
+      capitalInMonth: parseFloat(capitalInMonthRaw?.total ?? '0'),
+      certificatesInMonth: parseFloat(certificatesInMonthRaw?.total ?? '0'),
+      totalCapital: parseFloat(totalCapitalRaw?.total ?? '0'),
+      totalCertificates: parseFloat(totalCertificatesRaw?.total ?? '0'),
     };
   }
 

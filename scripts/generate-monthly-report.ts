@@ -1,6 +1,7 @@
 import * as dotenv from 'dotenv';
 import { DataSource } from 'typeorm';
-import { ExcelTransaction } from '../src/database/entities/excel-transaction.entity';
+import { DepositTransaction } from '../src/database/entities/deposit-transaction.entity';
+import { CertificateTransaction } from '../src/database/entities/certificate-transaction.entity';
 import { FundPrice } from '../src/database/entities/fund-price.entity';
 import { MonthlyInvestmentReport } from '../src/database/entities/monthly-investment-report.entity';
 
@@ -47,7 +48,12 @@ async function createDataSource(): Promise<DataSource> {
 
   const dataSource = new DataSource({
     ...baseOptions,
-    entities: [ExcelTransaction, FundPrice, MonthlyInvestmentReport],
+    entities: [
+      DepositTransaction,
+      CertificateTransaction,
+      FundPrice,
+      MonthlyInvestmentReport,
+    ],
     synchronize: false,
   });
 
@@ -70,36 +76,41 @@ async function aggregateMonthlyTransactions(
     `🔍 Aggregating transactions from ${startDate.toISOString()} to ${endDate.toISOString()}`,
   );
 
-  const monthlyRaw = await dataSource
-    .getRepository(ExcelTransaction)
-    .createQueryBuilder('transaction')
-    .select('COALESCE(SUM(transaction.capital), 0)', 'capitalInMonth')
-    .addSelect(
-      'COALESCE(SUM(transaction.numberOfFundCertificate), 0)',
-      'certificatesInMonth',
-    )
-    .where('transaction.transactionDate IS NOT NULL')
-    .andWhere('transaction.transactionDate >= :startDate', { startDate })
-    .andWhere('transaction.transactionDate < :endDate', { endDate })
-    .getRawOne<{ capitalInMonth: string; certificatesInMonth: string }>();
+  const capitalInMonthRaw = await dataSource
+    .getRepository(DepositTransaction)
+    .createQueryBuilder('deposit')
+    .select('COALESCE(SUM(deposit.capital), 0)', 'total')
+    .where('deposit.transactionDate >= :startDate', { startDate })
+    .andWhere('deposit.transactionDate < :endDate', { endDate })
+    .getRawOne<{ total: string }>();
 
-  const cumulativeRaw = await dataSource
-    .getRepository(ExcelTransaction)
-    .createQueryBuilder('transaction')
-    .select('COALESCE(SUM(transaction.capital), 0)', 'totalCapital')
-    .addSelect(
-      'COALESCE(SUM(transaction.numberOfFundCertificate), 0)',
-      'totalCertificates',
-    )
-    .where('transaction.transactionDate IS NOT NULL')
-    .andWhere('transaction.transactionDate < :endDate', { endDate })
-    .getRawOne<{ totalCapital: string; totalCertificates: string }>();
+  const certificatesInMonthRaw = await dataSource
+    .getRepository(CertificateTransaction)
+    .createQueryBuilder('cert')
+    .select('COALESCE(SUM(cert.numberOfCertificates), 0)', 'total')
+    .where('cert.transactionDate >= :startDate', { startDate })
+    .andWhere('cert.transactionDate < :endDate', { endDate })
+    .getRawOne<{ total: string }>();
+
+  const totalCapitalRaw = await dataSource
+    .getRepository(DepositTransaction)
+    .createQueryBuilder('deposit')
+    .select('COALESCE(SUM(deposit.capital), 0)', 'total')
+    .where('deposit.transactionDate < :endDate', { endDate })
+    .getRawOne<{ total: string }>();
+
+  const totalCertificatesRaw = await dataSource
+    .getRepository(CertificateTransaction)
+    .createQueryBuilder('cert')
+    .select('COALESCE(SUM(cert.numberOfCertificates), 0)', 'total')
+    .where('cert.transactionDate < :endDate', { endDate })
+    .getRawOne<{ total: string }>();
 
   return {
-    capitalInMonth: parseFloat(monthlyRaw?.capitalInMonth ?? '0'),
-    certificatesInMonth: parseFloat(monthlyRaw?.certificatesInMonth ?? '0'),
-    totalCapital: parseFloat(cumulativeRaw?.totalCapital ?? '0'),
-    totalCertificates: parseFloat(cumulativeRaw?.totalCertificates ?? '0'),
+    capitalInMonth: parseFloat(capitalInMonthRaw?.total ?? '0'),
+    certificatesInMonth: parseFloat(certificatesInMonthRaw?.total ?? '0'),
+    totalCapital: parseFloat(totalCapitalRaw?.total ?? '0'),
+    totalCertificates: parseFloat(totalCertificatesRaw?.total ?? '0'),
   };
 }
 

@@ -4,7 +4,8 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { MonthlyInvestmentReportRepository } from '../../report/repositories/monthly-investment-report.repository';
 import { FundPriceRepository } from '../repositories/fund-price.repository';
-import { ExcelTransactionRepository } from '../repositories/excel-transaction.repository';
+import { DepositTransactionRepository } from '../repositories/deposit-transaction.repository';
+import { CertificateTransactionRepository } from '../repositories/certificate-transaction.repository';
 import { MonthlyInvestmentReport } from '../../database/entities/monthly-investment-report.entity';
 
 interface ReportSummary {
@@ -50,7 +51,8 @@ export class ReportImageService {
   constructor(
     private readonly monthlyInvestmentReportRepository: MonthlyInvestmentReportRepository,
     private readonly fundPriceRepository: FundPriceRepository,
-    private readonly excelTransactionRepository: ExcelTransactionRepository,
+    private readonly depositTransactionRepository: DepositTransactionRepository,
+    private readonly certificateTransactionRepository: CertificateTransactionRepository,
   ) {}
 
   async generateReportImage(options?: {
@@ -86,7 +88,7 @@ export class ReportImageService {
           );
         if (currentMonthData) {
           this.logger.log(
-            `Generated current month (${currentMonth}) data from ExcelTransaction`,
+            `Generated current month (${currentMonth}) data from transactions`,
           );
           reports = [...reports, currentMonthData];
         }
@@ -540,6 +542,11 @@ export class ReportImageService {
   }
 
   private async hasTransactionsForMonth(month: string): Promise<boolean> {
-    return this.excelTransactionRepository.hasTransactionsForMonth(month);
+    const [hasDeposits, hasCertificates] = await Promise.all([
+      this.depositTransactionRepository.hasTransactionsForMonth(month),
+      this.certificateTransactionRepository.hasTransactionsForMonth(month),
+    ]);
+
+    return hasDeposits || hasCertificates;
   }
 }

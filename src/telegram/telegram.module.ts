@@ -17,6 +17,11 @@ import { MonthlyInvestmentReport } from '../database/entities/monthly-investment
 import { MonthlyInvestmentReportRepository } from '../report/repositories/monthly-investment-report.repository';
 import { SupabaseStorageService } from './services/supabase-storage.service';
 import { ReportImageService } from './services/report-image.service';
+import { TelegramConversationService } from './services/telegram-conversation.service';
+import { TelegramCommandsService } from './services/telegram-commands.service';
+import { TelegramDepositService } from './services/telegram-deposit.service';
+import { TelegramCertificateService } from './services/telegram-certificate.service';
+import { TelegramPhotoService } from './services/telegram-photo.service';
 
 @Module({
   imports: [
@@ -32,13 +37,25 @@ import { ReportImageService } from './services/report-image.service';
   ],
   controllers: [TelegramController],
   providers: [
+    // Main service
     TelegramService,
+
+    // Feature-specific services
+    TelegramConversationService,
+    TelegramCommandsService,
+    TelegramDepositService,
+    TelegramCertificateService,
+    TelegramPhotoService,
+
+    // Repositories
     ExcelTransactionRepository,
     DepositTransactionRepository,
     CertificateTransactionRepository,
     FundPriceRepository,
     UploadLogRepository,
     MonthlyInvestmentReportRepository,
+
+    // Utility services
     SupabaseStorageService,
     ReportImageService,
   ],

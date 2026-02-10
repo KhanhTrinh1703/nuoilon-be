@@ -22,6 +22,7 @@ export default () => ({
   telegram: {
     botToken: process.env.TELEGRAM_BOT_TOKEN,
     webhookUrl: process.env.TELEGRAM_WEBHOOK_URL,
+    allowedUserIds: process.env.TELEGRAM_ALLOWED_USER_IDS,
   },
   firebase: {
     serviceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,

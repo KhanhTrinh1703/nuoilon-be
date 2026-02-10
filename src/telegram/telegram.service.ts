@@ -105,8 +105,7 @@ export class TelegramService implements OnModuleInit {
         }
 
         // Calculate metrics
-        const navValue =
-          Number(fundCertificates) * Number(fundPrice.price) * 1000;
+        const navValue = Number(fundCertificates) * Number(fundPrice.price);
         const averageCost = Number(fundPrice.averageCost ?? 0);
         const hasAverageCost = averageCost > 0;
         const profitLoss = hasAverageCost
@@ -134,7 +133,7 @@ export class TelegramService implements OnModuleInit {
           });
 
         const averageCostDisplay = hasAverageCost
-          ? `${formatNumber(averageCost * 1000)}`
+          ? `${formatNumber(averageCost)}`
           : 'Chưa có dữ liệu';
 
         const profitLossLine = hasAverageCost
@@ -148,7 +147,7 @@ export class TelegramService implements OnModuleInit {
           `- *Giá trị NAV:* ${formatNumber(navValue)} VNĐ\n` +
           `- *Số CCQ:* ${formatNumber(fundCertificates)}\n` +
           `- *Giá vốn:* ${averageCostDisplay}\n` +
-          `- *Giá CCQ:* ${formatNumber(Number(fundPrice.price) * 1000)}\n` +
+          `- *Giá CCQ:* ${formatNumber(Number(fundPrice.price))}\n` +
           `${profitLossLine}\n\n` +
           `_Giá thị trường cập nhật lúc ${formatTimestamp(fundPrice.updatedAt)}_`;
 

@@ -156,8 +156,8 @@ export class ReportImageService {
         : 0;
     const averageCost = fundPrice ? Number(fundPrice.averageCost ?? 0) : 0;
 
-    const currentValue = totalCertificates * navPrice * 1000;
-    const investedCapital = averageCost * totalCertificates * 1000;
+    const currentValue = totalCertificates * navPrice;
+    const investedCapital = averageCost * totalCertificates;
     const profitValue = currentValue - investedCapital;
     const profitRatio =
       averageCost > 0 ? ((navPrice - averageCost) / averageCost) * 100 : 0;
@@ -188,9 +188,7 @@ export class ReportImageService {
 
     const navSeries = reports.map((report) =>
       Math.round(
-        Number(report.totalCertificates) *
-          Number(report.latestFundPrice) *
-          1000,
+        Number(report.totalCertificates) * Number(report.latestFundPrice),
       ),
     );
     const investmentSeries = reports.map((report) =>
@@ -288,7 +286,7 @@ export class ReportImageService {
         summary.totalCertificates,
       ),
       currentValueLabel: `${this.formatCurrency(summary.currentValue)} VNĐ`,
-      navLabel: `${this.formatCurrency(summary.navPrice * 1000)} VNĐ`,
+      navLabel: `${this.formatCurrency(summary.navPrice)} VNĐ`,
       monthsLabel: summary.months ? `${summary.months} tháng` : '0 tháng',
       profitRatioLabel: `${profitPositive ? '+' : ''}${summary.profitRatio.toFixed(2)}%`,
       profitDescription: profitPositive

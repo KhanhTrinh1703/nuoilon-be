@@ -2,6 +2,10 @@ import { IsNumber, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+/**
+ * @deprecated Use UpsertDepositTransactionDto or UpsertCertificateTransactionDto instead.
+ * This endpoint will be removed after Google AppScript migration is complete.
+ */
 export class UpsertExcelTransactionDto {
   @ApiPropertyOptional({
     description: 'Transaction date string (date only, no time/timezone)',

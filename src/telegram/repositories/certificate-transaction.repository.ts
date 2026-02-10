@@ -44,4 +44,33 @@ export class CertificateTransactionRepository {
 
     return count > 0;
   }
+
+  async upsertTransaction(data: {
+    transactionDate: string;
+    numberOfCertificates: number;
+    price: number;
+    transactionId: string;
+  }): Promise<CertificateTransaction> {
+    const existing = await this.repository.findOne({
+      where: { transactionId: data.transactionId },
+    });
+
+    if (existing) {
+      Object.assign(existing, {
+        transactionDate: new Date(data.transactionDate),
+        numberOfCertificates: data.numberOfCertificates,
+        price: data.price,
+      });
+      return await this.repository.save(existing);
+    }
+
+    const transaction = this.repository.create({
+      transactionDate: new Date(data.transactionDate),
+      numberOfCertificates: data.numberOfCertificates,
+      price: data.price,
+      transactionId: data.transactionId,
+    });
+
+    return await this.repository.save(transaction);
+  }
 }

@@ -63,10 +63,15 @@ async function crawlFundPrice() {
       throw new Error('Price element found but no text content available');
     }
 
-    const price = parseFloat(priceText.trim());
+    let price = parseFloat(priceText.trim());
 
     if (isNaN(price) || price === 0) {
       throw new Error(`Invalid price value: ${priceText}`);
+    }
+
+    // add 1000 VND buffer
+    if (price < 1000) {
+      price = price * 1000;
     }
 
     console.log(`💰 Crawled price: ${price}`);

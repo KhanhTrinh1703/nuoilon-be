@@ -11,12 +11,13 @@ import { ConfigService } from '@nestjs/config';
 import { Telegraf, Context } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { Update } from 'telegraf/types';
-import { ExcelTransactionRepository } from './repositories/excel-transaction.repository';
 import { FundPriceRepository } from './repositories/fund-price.repository';
 import { SupabaseStorageService } from './services/supabase-storage.service';
 import { UploadLogRepository } from './repositories/upload-log.repository';
 import { ReportImageService } from './services/report-image.service';
 import { MonthlyInvestmentReportRepository } from '../report/repositories/monthly-investment-report.repository';
+import { DepositTransactionRepository } from './repositories/deposit-transaction.repository';
+import { CertificateTransactionRepository } from './repositories/certificate-transaction.repository';
 
 @Injectable()
 export class TelegramService implements OnModuleInit {
@@ -29,12 +30,13 @@ export class TelegramService implements OnModuleInit {
   private isGeneratingReport = false;
   constructor(
     private readonly configService: ConfigService,
-    private readonly excelTransactionRepository: ExcelTransactionRepository,
     private readonly fundPriceRepository: FundPriceRepository,
     private readonly supabaseStorageService: SupabaseStorageService,
     private readonly uploadLogRepository: UploadLogRepository,
     private readonly monthlyInvestmentReportRepository: MonthlyInvestmentReportRepository,
     private readonly reportImageService: ReportImageService,
+    private readonly depositTransactionRepository: DepositTransactionRepository,
+    private readonly certificateTransactionRepository: CertificateTransactionRepository,
   ) {
     this.botToken = this.configService.get<string>('telegram.botToken') ?? '';
     this.webhookUrl =
@@ -82,12 +84,16 @@ export class TelegramService implements OnModuleInit {
     // /reports command
     this.bot.command('reports', async (ctx: Context) => {
       try {
-        const investmentMonths =
-          await this.excelTransactionRepository.getDistinctMonthsCount();
+        const depositMonths =
+          await this.depositTransactionRepository.getDistinctMonths();
+        const certificateMonths =
+          await this.certificateTransactionRepository.getDistinctMonths();
+        const allMonths = new Set([...depositMonths, ...certificateMonths]);
+        const investmentMonths = allMonths.size;
         const totalCapital =
-          await this.excelTransactionRepository.getTotalCapital();
+          await this.depositTransactionRepository.getTotalCapital();
         const fundCertificates =
-          await this.excelTransactionRepository.getTotalNumberOfFundCertificates();
+          await this.certificateTransactionRepository.getTotalNumberOfCertificates();
 
         const fundPrice = await this.fundPriceRepository.findByName('E1VFVN30');
 
@@ -99,8 +105,7 @@ export class TelegramService implements OnModuleInit {
         }
 
         // Calculate metrics
-        const navValue =
-          Number(fundCertificates) * Number(fundPrice.price) * 1000;
+        const navValue = Number(fundCertificates) * Number(fundPrice.price);
         const averageCost = Number(fundPrice.averageCost ?? 0);
         const hasAverageCost = averageCost > 0;
         const profitLoss = hasAverageCost
@@ -128,7 +133,7 @@ export class TelegramService implements OnModuleInit {
           });
 
         const averageCostDisplay = hasAverageCost
-          ? `${formatNumber(averageCost * 1000)}`
+          ? `${formatNumber(averageCost)}`
           : 'Chưa có dữ liệu';
 
         const profitLossLine = hasAverageCost
@@ -142,7 +147,7 @@ export class TelegramService implements OnModuleInit {
           `- *Giá trị NAV:* ${formatNumber(navValue)} VNĐ\n` +
           `- *Số CCQ:* ${formatNumber(fundCertificates)}\n` +
           `- *Giá vốn:* ${averageCostDisplay}\n` +
-          `- *Giá CCQ:* ${formatNumber(Number(fundPrice.price) * 1000)}\n` +
+          `- *Giá CCQ:* ${formatNumber(Number(fundPrice.price))}\n` +
           `${profitLossLine}\n\n` +
           `_Giá thị trường cập nhật lúc ${formatTimestamp(fundPrice.updatedAt)}_`;
 

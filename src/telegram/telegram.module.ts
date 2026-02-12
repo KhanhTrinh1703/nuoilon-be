@@ -22,6 +22,8 @@ import { TelegramCommandsService } from './services/telegram-commands.service';
 import { TelegramDepositService } from './services/telegram-deposit.service';
 import { TelegramCertificateService } from './services/telegram-certificate.service';
 import { TelegramPhotoService } from './services/telegram-photo.service';
+import { OcrJob } from '../database/entities/ocr-job.entity';
+import { OcrJobRepository } from './repositories/ocr-job.repository';
 
 @Module({
   imports: [
@@ -32,6 +34,7 @@ import { TelegramPhotoService } from './services/telegram-photo.service';
       FundPrice,
       UploadLog,
       MonthlyInvestmentReport,
+      OcrJob,
     ]),
     ConfigModule,
   ],
@@ -54,6 +57,7 @@ import { TelegramPhotoService } from './services/telegram-photo.service';
     FundPriceRepository,
     UploadLogRepository,
     MonthlyInvestmentReportRepository,
+    OcrJobRepository,
 
     // Utility services
     SupabaseStorageService,

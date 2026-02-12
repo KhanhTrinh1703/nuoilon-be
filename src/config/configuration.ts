@@ -35,4 +35,9 @@ export default () => ({
     storageBucket: process.env.SUPABASE_STORAGE_BUCKET,
     uploadFolder: process.env.SUPABASE_UPLOAD_FOLDER || 'images',
   },
+  rabbitmq: {
+    url: process.env.RABBITMQ_URL,
+    exchange: process.env.RABBITMQ_EXCHANGE || 'direct',
+    queue: process.env.RABBITMQ_QUEUE || 'ocr-ocr_jobs',
+  },
 });

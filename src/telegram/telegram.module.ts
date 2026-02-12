@@ -22,6 +22,7 @@ import { TelegramCommandsService } from './services/telegram-commands.service';
 import { TelegramDepositService } from './services/telegram-deposit.service';
 import { TelegramCertificateService } from './services/telegram-certificate.service';
 import { TelegramPhotoService } from './services/telegram-photo.service';
+import { RabbitMQPublisherService } from './services/rabbitmq-publisher.service';
 import { OcrJob } from '../database/entities/ocr-job.entity';
 import { OcrJobRepository } from './repositories/ocr-job.repository';
 
@@ -62,6 +63,7 @@ import { OcrJobRepository } from './repositories/ocr-job.repository';
     // Utility services
     SupabaseStorageService,
     ReportImageService,
+    RabbitMQPublisherService,
   ],
 })
 export class TelegramModule {}

@@ -44,4 +44,30 @@ export class DepositTransactionRepository {
 
     return count > 0;
   }
+
+  async upsertTransaction(data: {
+    transactionDate: string;
+    capital: number;
+    transactionId: string;
+  }): Promise<DepositTransaction> {
+    const existing = await this.repository.findOne({
+      where: { transactionId: data.transactionId },
+    });
+
+    if (existing) {
+      Object.assign(existing, {
+        transactionDate: new Date(data.transactionDate),
+        capital: data.capital,
+      });
+      return await this.repository.save(existing);
+    }
+
+    const transaction = this.repository.create({
+      transactionDate: new Date(data.transactionDate),
+      capital: data.capital,
+      transactionId: data.transactionId,
+    });
+
+    return await this.repository.save(transaction);
+  }
 }

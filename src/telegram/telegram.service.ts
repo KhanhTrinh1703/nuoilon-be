@@ -1,42 +1,42 @@
-/* eslint-disable @typescript-eslint/no-floating-promises, @typescript-eslint/no-unsafe-assignment */
-import axios from 'axios';
-import { extname } from 'path';
+/* eslint-disable @typescript-eslint/no-floating-promises */
 import {
   Injectable,
   Logger,
   OnModuleInit,
-  BadRequestException,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Telegraf, Context } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { Update } from 'telegraf/types';
-import { FundPriceRepository } from './repositories/fund-price.repository';
-import { SupabaseStorageService } from './services/supabase-storage.service';
-import { UploadLogRepository } from './repositories/upload-log.repository';
 import { ReportImageService } from './services/report-image.service';
-import { MonthlyInvestmentReportRepository } from '../report/repositories/monthly-investment-report.repository';
-import { DepositTransactionRepository } from './repositories/deposit-transaction.repository';
-import { CertificateTransactionRepository } from './repositories/certificate-transaction.repository';
+import { TelegramConversationService } from './services/telegram-conversation.service';
+import { TelegramCommandsService } from './services/telegram-commands.service';
+import { TelegramDepositService } from './services/telegram-deposit.service';
+import { TelegramCertificateService } from './services/telegram-certificate.service';
+import { TelegramPhotoService } from './services/telegram-photo.service';
 
+/**
+ * Main Telegram service that coordinates all bot functionality
+ * Delegates specific commands and flows to specialized services
+ */
 @Injectable()
-export class TelegramService implements OnModuleInit {
-  private static readonly MAX_UPLOADS_PER_DAY = 20;
+export class TelegramService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TelegramService.name);
   private bot: Telegraf;
   private readonly botToken: string;
   private readonly webhookUrl: string;
-  private pendingUploads = new Set<number>();
   private isGeneratingReport = false;
+  private allowedUserIds: Set<number> | null = null;
+
   constructor(
     private readonly configService: ConfigService,
-    private readonly fundPriceRepository: FundPriceRepository,
-    private readonly supabaseStorageService: SupabaseStorageService,
-    private readonly uploadLogRepository: UploadLogRepository,
-    private readonly monthlyInvestmentReportRepository: MonthlyInvestmentReportRepository,
     private readonly reportImageService: ReportImageService,
-    private readonly depositTransactionRepository: DepositTransactionRepository,
-    private readonly certificateTransactionRepository: CertificateTransactionRepository,
+    private readonly conversationService: TelegramConversationService,
+    private readonly commandsService: TelegramCommandsService,
+    private readonly depositService: TelegramDepositService,
+    private readonly certificateService: TelegramCertificateService,
+    private readonly photoService: TelegramPhotoService,
   ) {
     this.botToken = this.configService.get<string>('telegram.botToken') ?? '';
     this.webhookUrl =
@@ -62,6 +62,12 @@ export class TelegramService implements OnModuleInit {
       return;
     }
 
+    this.initializeUserWhitelist();
+    this.setupTextMessageHandler();
+
+    // Start conversation cleanup interval
+    this.conversationService.startCleanup();
+
     if (this.webhookUrl) {
       try {
         await this.setWebhook();
@@ -75,193 +81,202 @@ export class TelegramService implements OnModuleInit {
     }
   }
 
+  /**
+   * Initialize user whitelist from environment configuration
+   */
+  private initializeUserWhitelist() {
+    const whitelistEnv = this.configService.get<string>(
+      'telegram.allowedUserIds',
+    );
+
+    if (whitelistEnv) {
+      const userIds = whitelistEnv
+        .split(',')
+        .map((id) => parseInt(id.trim(), 10))
+        .filter((id) => !isNaN(id));
+
+      this.allowedUserIds = new Set(userIds);
+      this.logger.log(
+        `Telegram user whitelist enabled: ${userIds.length} user(s)`,
+      );
+    } else {
+      this.allowedUserIds = null;
+      this.logger.log('Telegram user whitelist disabled: allowing all users');
+    }
+  }
+
+  /**
+   * Check if user is allowed to use protected commands
+   */
+  private isUserAllowed(userId: number): boolean {
+    if (this.allowedUserIds === null) {
+      return true;
+    }
+    return this.allowedUserIds.has(userId);
+  }
+
+  /**
+   * Setup all bot commands and callback handlers
+   */
   private setupCommands() {
+    // === BASIC COMMANDS ===
+
     // /hi command
     this.bot.command('hi', (ctx: Context) => {
-      ctx.reply('Chào mấy con gà, mấy con gà làm đếch gì biết về tài chính!');
+      this.commandsService.handleHiCommand(ctx);
     });
 
     // /reports command
     this.bot.command('reports', async (ctx: Context) => {
-      try {
-        const depositMonths =
-          await this.depositTransactionRepository.getDistinctMonths();
-        const certificateMonths =
-          await this.certificateTransactionRepository.getDistinctMonths();
-        const allMonths = new Set([...depositMonths, ...certificateMonths]);
-        const investmentMonths = allMonths.size;
-        const totalCapital =
-          await this.depositTransactionRepository.getTotalCapital();
-        const fundCertificates =
-          await this.certificateTransactionRepository.getTotalNumberOfCertificates();
-
-        const fundPrice = await this.fundPriceRepository.findByName('E1VFVN30');
-
-        if (!fundPrice) {
-          ctx.reply(
-            '❌ Không tìm thấy giá quỹ E1VFVN30. Vui lòng thử lại sau.',
-          );
-          return;
-        }
-
-        // Calculate metrics
-        const navValue = Number(fundCertificates) * Number(fundPrice.price);
-        const averageCost = Number(fundPrice.averageCost ?? 0);
-        const hasAverageCost = averageCost > 0;
-        const profitLoss = hasAverageCost
-          ? ((Number(fundPrice.price) - averageCost) / averageCost) * 100
-          : null;
-
-        const formatNumber = (num: number) =>
-          num.toLocaleString('vi-VN', {
-            maximumFractionDigits: 0,
-          });
-
-        const formatDecimalNumber = (num: number) =>
-          num.toLocaleString('vi-VN', {
-            maximumFractionDigits: 2,
-          });
-
-        const formatTimestamp = (date: Date) =>
-          date.toLocaleString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            timeZone: 'Asia/Ho_Chi_Minh',
-          });
-
-        const averageCostDisplay = hasAverageCost
-          ? `${formatNumber(averageCost)}`
-          : 'Chưa có dữ liệu';
-
-        const profitLossLine = hasAverageCost
-          ? `- ${profitLoss! >= 0 ? '✅ *Lợi nhuận:*' : '❌ *Lỗ:*'} ${formatDecimalNumber(Math.abs(profitLoss!))}%`
-          : '- *Lợi nhuận:* Chưa có dữ liệu giá vốn';
-
-        const message =
-          `📊 *BÁO CÁO QUỸ ĐẦU TƯ E1VFVN30*\n\n` +
-          `- *Thời gian đầu tư:* ${investmentMonths} tháng \n` +
-          `- *Tổng vốn:* ${formatNumber(totalCapital)} VNĐ\n` +
-          `- *Giá trị NAV:* ${formatNumber(navValue)} VNĐ\n` +
-          `- *Số CCQ:* ${formatNumber(fundCertificates)}\n` +
-          `- *Giá vốn:* ${averageCostDisplay}\n` +
-          `- *Giá CCQ:* ${formatNumber(Number(fundPrice.price))}\n` +
-          `${profitLossLine}\n\n` +
-          `_Giá thị trường cập nhật lúc ${formatTimestamp(fundPrice.updatedAt)}_`;
-
-        ctx.reply(message, { parse_mode: 'Markdown' });
-      } catch (error) {
-        this.logger.error('Error generating report:', error);
-        ctx.reply('❌ Lỗi khi tạo báo cáo. Vui lòng thử lại sau.');
-      }
+      await this.commandsService.handleReportsCommand(ctx);
     });
 
     // /upload command
     this.bot.command('upload', (ctx: Context) => {
       const userId = ctx.from?.id;
       if (!userId) return ctx.reply('Unable to identify user.');
-      this.pendingUploads.add(userId);
+      this.photoService.startUploadSession(userId);
       ctx.reply('Vui lòng gửi hình ảnh để upload lên Supabase Storage.');
     });
 
-    // /report-image command
+    // /report_image command
     this.bot.command('report_image', async (ctx: Context) => {
       await this.handleReportImageCommand(ctx);
     });
 
+    // /input command - Start transaction input flow
+    this.bot.command('input', async (ctx: Context) => {
+      try {
+        const userId = ctx.from?.id;
+        if (!userId) {
+          return ctx.reply('❌ Không thể xác định người dùng.');
+        }
+
+        if (!this.isUserAllowed(userId)) {
+          this.logger.warn(`Unauthorized user attempted /input: ${userId}`);
+          return ctx.reply('❌ Bạn không có quyền sử dụng lệnh này.');
+        }
+
+        // Check for duplicate conversation
+        if (this.conversationService.hasConversation(userId)) {
+          return ctx.reply(
+            '⚠️ Bạn đang có giao dịch chưa hoàn thành. Nhập /cancel để hủy hoặc tiếp tục nhập liệu.',
+          );
+        }
+
+        await ctx.reply('Chọn loại giao dịch:', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💰 Nạp tiền', callback_data: 'input_deposit' }],
+              [
+                {
+                  text: '🛒 Mua chứng chỉ quỹ',
+                  callback_data: 'input_certificate',
+                },
+              ],
+            ],
+          },
+        });
+
+        this.logger.log(`User ${userId} initiated /input command`);
+      } catch (error) {
+        this.logger.error('Error in /input command:', error);
+        ctx.reply('❌ Đã xảy ra lỗi. Vui lòng thử lại sau.');
+      }
+    });
+
+    // /cancel command
+    this.bot.command('cancel', async (ctx: Context) => {
+      await this.commandsService.handleCancelCommand(ctx);
+    });
+
+    // === DEPOSIT FLOW CALLBACK HANDLERS ===
+
+    this.bot.action('input_deposit', async (ctx) => {
+      await this.depositService.startDepositFlow(ctx);
+    });
+
+    this.bot.action('deposit_date_today', async (ctx) => {
+      await this.depositService.handleTodayDate(ctx);
+    });
+
+    this.bot.action('deposit_date_custom', async (ctx) => {
+      await this.depositService.handleCustomDate(ctx);
+    });
+
+    // === CERTIFICATE FLOW CALLBACK HANDLERS ===
+
+    this.bot.action('input_certificate', async (ctx) => {
+      await this.certificateService.startCertificateFlow(ctx);
+    });
+
+    this.bot.action('certificate_date_today', async (ctx) => {
+      await this.certificateService.handleTodayDate(ctx);
+    });
+
+    this.bot.action('certificate_date_custom', async (ctx) => {
+      await this.certificateService.handleCustomDate(ctx);
+    });
+
+    // Error handler
     this.bot.catch((err: any, ctx: Context) => {
       this.logger.error(`Error for ${ctx.updateType}:`, err);
     });
   }
 
-  private setupPhotoHandler() {
-    this.bot.on(message('photo'), async (ctx) => {
+  /**
+   * Setup text message handler - Routes to appropriate flow handler
+   */
+  private setupTextMessageHandler() {
+    this.bot.on(message('text'), async (ctx) => {
+      const userId = ctx.from?.id;
+      if (!userId) return;
+
+      const conversation = this.conversationService.getConversation(userId);
+      if (!conversation) {
+        // Not in a conversation, ignore message
+        return;
+      }
+
       try {
-        const userId = ctx.from?.id;
-        if (!userId) return;
+        const text = ctx.message.text;
 
-        if (!this.pendingUploads.has(userId)) {
-          // ignore unsolicited photos
-          return;
-        }
-
-        // enforce daily limit
-        const start = new Date();
-        start.setHours(0, 0, 0, 0);
-        const end = new Date();
-        end.setHours(23, 59, 59, 999);
-
-        const uploadsToday =
-          await this.uploadLogRepository.countUploadsForUserBetween(
-            String(userId),
-            start,
-            end,
+        if (conversation.type === 'deposit') {
+          await this.depositService.handleTextInput(
+            ctx,
+            userId,
+            conversation,
+            text,
           );
-
-        if (uploadsToday >= TelegramService.MAX_UPLOADS_PER_DAY) {
-          this.pendingUploads.delete(userId);
-          ctx.reply(
-            "You've reached your daily upload limit (20 files). Try again tomorrow.",
+        } else if (conversation.type === 'certificate') {
+          await this.certificateService.handleTextInput(
+            ctx,
+            userId,
+            conversation,
+            text,
           );
-          return;
         }
-
-        const photos = ctx.message.photo ?? [];
-        if (!photos.length) {
-          ctx.reply('No photo found in the message.');
-          return;
-        }
-
-        // select highest resolution (last in array)
-        const best = photos[photos.length - 1];
-        const fileId = best.file_id;
-
-        const fileLink = await ctx.telegram.getFileLink(fileId);
-        const response = await axios.get(fileLink.href, {
-          responseType: 'arraybuffer',
-        });
-
-        const buffer = Buffer.from(response.data);
-        const mimeType =
-          response.headers['content-type'] || 'application/octet-stream';
-        const ext = extname(fileLink.pathname || '') || '.jpg';
-        const filename = `${Date.now()}_${userId}${ext}`;
-
-        // upload to Supabase Storage
-        const { webUrl } = await this.supabaseStorageService.uploadImage({
-          buffer,
-          filename,
-          mimeType,
-          fileSize: buffer.length,
-        });
-
-        // create upload log
-        await this.uploadLogRepository.createUploadLog({
-          telegramUserId: String(userId),
-          telegramMessageId: String(ctx.message.message_id),
-          originalName: filename,
-          mimeType,
-          fileSize: buffer.length,
-          storageUrl: webUrl,
-        });
-
-        ctx.reply(`Upload successful: ${filename}`);
-        this.pendingUploads.delete(userId);
-      } catch (err) {
-        this.logger.error('Photo upload failed', err);
-        if (err instanceof BadRequestException) {
-          // Surface validation message to user
-          const msg = err.message || 'Invalid file';
-          ctx.reply(`❌ File validation failed: ${msg}`);
-        } else {
-          ctx.reply('Upload failed. Please try again later.');
-        }
+      } catch (error) {
+        this.logger.error('Error in text message handler:', error);
+        await ctx.reply(
+          '❌ Đã xảy ra lỗi. Vui lòng thử lại hoặc nhập /cancel để hủy.',
+        );
       }
     });
   }
 
+  /**
+   * Setup photo handler - Delegates to photo service
+   */
+  private setupPhotoHandler() {
+    this.bot.on(message('photo'), async (ctx) => {
+      await this.photoService.handlePhoto(ctx);
+    });
+  }
+
+  /**
+   * Handle /report_image command - Generate visual investment report
+   */
   private async handleReportImageCommand(ctx: Context): Promise<void> {
     if (this.isGeneratingReport) {
       ctx.reply(
@@ -286,6 +301,9 @@ export class TelegramService implements OnModuleInit {
     }
   }
 
+  /**
+   * Set Telegram webhook
+   */
   private async setWebhook() {
     try {
       await this.bot.telegram.setWebhook(this.webhookUrl);
@@ -296,6 +314,9 @@ export class TelegramService implements OnModuleInit {
     }
   }
 
+  /**
+   * Handle incoming Telegram updates
+   */
   async handleUpdate(update: Update) {
     try {
       await this.bot.handleUpdate(update);
@@ -306,62 +327,27 @@ export class TelegramService implements OnModuleInit {
   }
 
   /**
+   * Clean up resources on module destroy
+   */
+  onModuleDestroy(): void {
+    this.conversationService.stopCleanup();
+  }
+
+  /**
    * Upload image via REST API (for testing purposes)
-   * @param file - Multer file object from Express
-   * @param userId - Optional user ID for tracking (defaults to 'test-user')
-   * @param description - Optional description for the upload
+   * Delegates to photo service
    */
   async uploadImageViaRest(
     file: Express.Multer.File,
     userId?: string,
     description?: string,
   ): Promise<{ webUrl: string; uploadLog: any }> {
-    try {
-      const effectiveUserId = userId || 'test-user';
-      const buffer = file.buffer;
-      const mimeType = file.mimetype;
-      const filename = file.originalname || `upload_${Date.now()}.jpg`;
-
-      // Upload to Supabase Storage
-      const { webUrl } = await this.supabaseStorageService.uploadImage({
-        buffer,
-        filename,
-        mimeType,
-        fileSize: buffer.length,
-      });
-
-      // Create upload log
-      const uploadLog = await this.uploadLogRepository.createUploadLog({
-        telegramUserId: effectiveUserId,
-        telegramMessageId: `rest_${Date.now()}`,
-        originalName: filename,
-        mimeType,
-        fileSize: buffer.length,
-        storageUrl: webUrl,
-      });
-
-      this.logger.log(
-        `REST API upload successful for user ${effectiveUserId}: ${webUrl}`,
-      );
-
-      return {
-        webUrl,
-        uploadLog: {
-          id: uploadLog.id,
-          userId: effectiveUserId,
-          filename,
-          size: buffer.length,
-          url: webUrl,
-          description: description || null,
-          uploadedAt: uploadLog.uploadedAt,
-        },
-      };
-    } catch (error) {
-      this.logger.error('REST API upload failed:', error);
-      throw error;
-    }
+    return this.photoService.uploadImageViaRest(file, userId, description);
   }
 
+  /**
+   * Get bot instance
+   */
   getBot(): Telegraf {
     return this.bot;
   }

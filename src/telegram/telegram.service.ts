@@ -4,6 +4,7 @@ import {
   Logger,
   OnModuleInit,
   OnModuleDestroy,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Telegraf, Context } from 'telegraf';
@@ -15,6 +16,10 @@ import { TelegramCommandsService } from './services/telegram-commands.service';
 import { TelegramDepositService } from './services/telegram-deposit.service';
 import { TelegramCertificateService } from './services/telegram-certificate.service';
 import { TelegramPhotoService } from './services/telegram-photo.service';
+import { OcrJobRepository } from './repositories/ocr-job.repository';
+import { SupabaseStorageService } from './services/supabase-storage.service';
+import { GetSignedUrlDto } from './dto/get-signed-url.dto';
+import { SignedUrlResponseDto } from './dto/signed-url-response.dto';
 
 /**
  * Main Telegram service that coordinates all bot functionality
@@ -37,6 +42,8 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly depositService: TelegramDepositService,
     private readonly certificateService: TelegramCertificateService,
     private readonly photoService: TelegramPhotoService,
+    private readonly ocrJobRepository: OcrJobRepository,
+    private readonly supabaseStorageService: SupabaseStorageService,
   ) {
     this.botToken = this.configService.get<string>('telegram.botToken') ?? '';
     this.webhookUrl =
@@ -343,6 +350,31 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     description?: string,
   ): Promise<{ webUrl: string; uploadLog: any }> {
     return this.photoService.uploadImageViaRest(file, userId, description);
+  }
+
+  /**
+   * Worker endpoint helper: resolve OCR job by idempotencyKey and return signed URL.
+   */
+  async getOcrJobSignedUrl(
+    dto: GetSignedUrlDto,
+  ): Promise<SignedUrlResponseDto> {
+    const job = await this.ocrJobRepository.findByIdempotencyKey(
+      dto.idempotencyKey,
+    );
+
+    if (!job) {
+      throw new NotFoundException('OCR job not found');
+    }
+
+    const signed = await this.supabaseStorageService.createSignedUrl(
+      job.storageBucket,
+      job.storagePath,
+    );
+
+    return {
+      signedUrl: signed.signedUrl,
+      expiresAt: signed.expiresAt,
+    };
   }
 
   /**

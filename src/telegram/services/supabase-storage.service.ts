@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseClient, createClient } from '@supabase/supabase-js';
 import { extname } from 'path';
@@ -82,18 +87,53 @@ export class SupabaseStorageService {
         return { webUrl: publicUrl };
       }
 
-      const signedUrl = await this.createSignedUrl(path);
-      if (signedUrl) {
-        return { webUrl: signedUrl };
-      }
-
-      throw new Error('Unable to generate Supabase Storage URL');
+      const signed = await this.createSignedUrl(this.bucketName, path);
+      return { webUrl: signed.signedUrl };
     } catch (err: unknown) {
       this.logger.error(
         `Failed to upload to Supabase Storage: ${this.formatError(err)}`,
       );
       throw err;
     }
+  }
+
+  async createSignedUrl(
+    storageBucket: string,
+    storagePath: string,
+  ): Promise<{ signedUrl: string; expiresAt: number }> {
+    if (!this.client) {
+      this.logger.error('Supabase Storage is not initialized');
+      throw new ServiceUnavailableException('Storage not configured');
+    }
+
+    if (!storageBucket) {
+      throw new BadRequestException('storageBucket is required');
+    }
+
+    if (!storagePath) {
+      throw new BadRequestException('storagePath is required');
+    }
+
+    const { data, error } = await this.client.storage
+      .from(storageBucket)
+      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+
+    if (error) {
+      this.logger.warn(
+        `Failed to create signed URL for ${storageBucket}/${storagePath}: ${this.formatError(error)}`,
+      );
+      throw new ServiceUnavailableException('Unable to create signed URL');
+    }
+
+    const signedUrl = data?.signedUrl ?? '';
+    if (!signedUrl) {
+      throw new ServiceUnavailableException('Unable to create signed URL');
+    }
+
+    return {
+      signedUrl,
+      expiresAt: Date.now() + SIGNED_URL_TTL_SECONDS * 1000,
+    };
   }
 
   private initializeSupabaseClient(url: string, serviceRoleKey: string): void {
@@ -142,23 +182,6 @@ export class SupabaseStorageService {
       this.logger.warn(`IMAGE_FILE_TYPE_ERROR_MESSAGE: ${normalizedExtension}`);
       throw new BadRequestException(IMAGE_FILE_TYPE_ERROR_MESSAGE);
     }
-  }
-
-  private async createSignedUrl(path: string): Promise<string | null> {
-    if (!this.client) return null;
-
-    const { data, error } = await this.client.storage
-      .from(this.bucketName)
-      .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
-
-    if (error) {
-      this.logger.warn(
-        `Failed to create signed URL for ${path}: ${this.formatError(error)}`,
-      );
-      return null;
-    }
-
-    return data?.signedUrl ?? null;
   }
 
   private buildStoragePath(filename: string): string {

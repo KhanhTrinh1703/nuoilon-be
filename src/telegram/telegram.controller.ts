@@ -18,11 +18,15 @@ import {
   ApiResponse,
   ApiConsumes,
   ApiBody,
+  ApiSecurity,
 } from '@nestjs/swagger';
 import { TelegramService } from './telegram.service';
 import { TelegramEnabledGuard } from '../common/guards/telegram-enabled.guard';
 import { DisableInProductionGuard } from '../common/guards/disable-in-production.guard';
+import { HmacSignatureGuard } from '../common/guards/hmac-signature.guard';
 import { UploadImageDto } from './dto/upload-image.dto';
+import { GetSignedUrlDto } from './dto/get-signed-url.dto';
+import { SignedUrlResponseDto } from './dto/signed-url-response.dto';
 import type { Update } from 'telegraf/types';
 import {
   IMAGE_FILE_ALLOWED_MIME_TYPES,
@@ -103,7 +107,7 @@ export class TelegramController {
           new MaxFileSizeValidator({ maxSize: IMAGE_FILE_MAX_SIZE_BYTES }),
           new FileTypeValidator({
             fileType: new RegExp(
-              `^(${IMAGE_FILE_ALLOWED_MIME_TYPES.map((t) => t.replace('/', '\\/')).join('|')})$`,
+              `^(${IMAGE_FILE_ALLOWED_MIME_TYPES.map((t) => t.replace('/', '/')).join('|')})$`,
               'i',
             ),
           }),
@@ -136,5 +140,26 @@ export class TelegramController {
       this.logger.error('Error uploading image:', error);
       throw error;
     }
+  }
+
+  @Post('ocr-jobs/signed-url')
+  @UseGuards(HmacSignatureGuard)
+  @ApiSecurity('HMAC-Signature')
+  @ApiOperation({
+    summary: 'Get signed URL for OCR job image (worker-only)',
+    description:
+      'Worker uses HMAC auth to request a signed download URL for the uploaded image by Telegram file_unique_id (idempotencyKey).',
+  })
+  @ApiBody({ type: GetSignedUrlDto })
+  @ApiResponse({ status: 200, type: SignedUrlResponseDto })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid or missing HMAC signature',
+  })
+  @ApiResponse({ status: 404, description: 'OCR job not found' })
+  async getOcrJobSignedUrl(
+    @Body() dto: GetSignedUrlDto,
+  ): Promise<SignedUrlResponseDto> {
+    return this.telegramService.getOcrJobSignedUrl(dto);
   }
 }

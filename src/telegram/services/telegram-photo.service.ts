@@ -3,8 +3,13 @@ import axios from 'axios';
 import { extname } from 'path';
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { Context } from 'telegraf';
-import { SupabaseStorageService } from './supabase-storage.service';
+import {
+  SupabaseStorageService,
+  UploadImageResult,
+} from './supabase-storage.service';
 import { UploadLogRepository } from '../repositories/upload-log.repository';
+import { OcrJobRepository } from '../repositories/ocr-job.repository';
+import { RabbitMQPublisherService } from './rabbitmq-publisher.service';
 
 /**
  * Service for handling photo uploads in Telegram bot
@@ -19,6 +24,8 @@ export class TelegramPhotoService {
   constructor(
     private readonly supabaseStorageService: SupabaseStorageService,
     private readonly uploadLogRepository: UploadLogRepository,
+    private readonly ocrJobRepository: OcrJobRepository,
+    private readonly rabbitmqPublisherService: RabbitMQPublisherService,
   ) {}
 
   /**
@@ -91,7 +98,7 @@ export class TelegramPhotoService {
       // select highest resolution (last in array)
       const best = photos[photos.length - 1];
       const fileId = best.file_id;
-
+      const idempotencyKey = best.file_unique_id;
       const fileLink = await ctx.telegram.getFileLink(fileId);
       const response = await axios.get(fileLink.href, {
         responseType: 'arraybuffer',
@@ -104,24 +111,51 @@ export class TelegramPhotoService {
       const filename = `${Date.now()}_${userId}${ext}`;
 
       // upload to Supabase Storage
-      const { webUrl } = await this.supabaseStorageService.uploadImage({
-        buffer,
-        filename,
-        mimeType,
-        fileSize: buffer.length,
-      });
+      const uploadResult: UploadImageResult =
+        await this.supabaseStorageService.uploadImage({
+          buffer,
+          filename,
+          mimeType,
+          fileSize: buffer.length,
+        });
 
-      // create upload log
+      // create upload log (existing behavior)
       await this.uploadLogRepository.createUploadLog({
         telegramUserId: String(userId),
         telegramMessageId: String(ctx.message.message_id),
         originalName: filename,
         mimeType,
         fileSize: buffer.length,
-        storageUrl: webUrl,
+        storageUrl: uploadResult.webUrl,
       });
 
-      ctx.reply(`Upload successful: ${filename}`);
+      const chatId = ctx.chat?.id;
+      if (typeof chatId !== 'number') {
+        ctx.reply('Upload successful, but could not determine chat context.');
+        this.pendingUploads.delete(userId);
+        return;
+      }
+
+      // create OCR job (idempotent on tg_file_unique_id)
+      const job = await this.ocrJobRepository.findOrCreatePending({
+        tgFileUniqueId: idempotencyKey,
+        tgChatId: String(chatId),
+        tgUserId: String(userId),
+        storageBucket: uploadResult.storageBucket,
+        storagePath: uploadResult.storagePath,
+        contentType: uploadResult.contentType,
+        maxAttempts: 2,
+      });
+
+      // publish OCR job to RabbitMQ (worker will fetch signed URL via API)
+      await this.rabbitmqPublisherService.publishOcrJob({
+        jobId: job.id,
+        idempotencyKey,
+        chatId,
+        userId,
+      });
+
+      await ctx.reply('📸 Ảnh đã được tải lên. Đang xử lý OCR...');
       this.pendingUploads.delete(userId);
     } catch (err) {
       this.logger.error('Photo upload failed', err);

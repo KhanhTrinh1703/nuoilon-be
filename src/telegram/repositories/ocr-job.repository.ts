@@ -37,6 +37,30 @@ export class OcrJobRepository {
     return this.repository.save(entity);
   }
 
+  async findOrCreatePending(input: CreateOcrJobInput): Promise<OcrJob> {
+    const existing = await this.findByIdempotencyKey(input.tgFileUniqueId);
+    if (existing) {
+      return existing;
+    }
+
+    try {
+      return await this.create({
+        ...input,
+        status: input.status ?? OcrJobStatus.PENDING,
+      });
+    } catch (err: unknown) {
+      // Postgres unique violation (race or re-upload of same Telegram file_unique_id)
+      const code = (err as { code?: unknown } | null)?.code;
+      if (code === '23505') {
+        const after = await this.findByIdempotencyKey(input.tgFileUniqueId);
+        if (after) {
+          return after;
+        }
+      }
+      throw err;
+    }
+  }
+
   async findByIdempotencyKey(idempotencyKey: string): Promise<OcrJob | null> {
     return this.repository.findOne({
       where: { tgFileUniqueId: idempotencyKey },

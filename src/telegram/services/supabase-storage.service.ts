@@ -22,6 +22,13 @@ interface UploadPayload {
   fileSize: number;
 }
 
+export interface UploadImageResult {
+  webUrl: string;
+  storageBucket: string;
+  storagePath: string;
+  contentType: string;
+}
+
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 @Injectable()
@@ -59,7 +66,7 @@ export class SupabaseStorageService {
     this.initializeSupabaseClient(supabaseUrl, serviceRoleKey);
   }
 
-  async uploadImage(payload: UploadPayload): Promise<{ webUrl: string }> {
+  async uploadImage(payload: UploadPayload): Promise<UploadImageResult> {
     if (!this.client) {
       this.logger.error('Supabase Storage is not initialized');
       throw new Error('Storage not configured');
@@ -68,13 +75,15 @@ export class SupabaseStorageService {
     // Validate payload before attempting upload
     this.validateFilePayload(payload);
 
-    const path = this.buildStoragePath(payload.filename);
+    const storageBucket = this.bucketName;
+    const storagePath = this.buildStoragePath(payload.filename);
+    const contentType = payload.mimeType;
 
     try {
       const { error } = await this.client.storage
-        .from(this.bucketName)
-        .upload(path, payload.buffer, {
-          contentType: payload.mimeType,
+        .from(storageBucket)
+        .upload(storagePath, payload.buffer, {
+          contentType,
           upsert: false,
         });
 
@@ -82,13 +91,32 @@ export class SupabaseStorageService {
         throw error;
       }
 
-      const publicUrl = this.getPublicUrl(path);
-      if (publicUrl) {
-        return { webUrl: publicUrl };
-      }
+      return {
+        webUrl: '',
+        storageBucket,
+        storagePath,
+        contentType,
+      };
 
-      const signed = await this.createSignedUrl(this.bucketName, path);
-      return { webUrl: signed.signedUrl };
+      // Did not use public URL to avoid exposing files publicly
+
+      // const publicUrl = this.getPublicUrl(storagePath);
+      // if (publicUrl) {
+      //   return {
+      //     webUrl: publicUrl,
+      //     storageBucket,
+      //     storagePath,
+      //     contentType,
+      //   };
+      // }
+
+      // const signed = await this.createSignedUrl(storageBucket, storagePath);
+      // return {
+      //   webUrl: signed.signedUrl,
+      //   storageBucket,
+      //   storagePath,
+      //   contentType,
+      // };
     } catch (err: unknown) {
       this.logger.error(
         `Failed to upload to Supabase Storage: ${this.formatError(err)}`,

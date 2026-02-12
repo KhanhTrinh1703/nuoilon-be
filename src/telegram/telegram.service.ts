@@ -143,7 +143,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       const userId = ctx.from?.id;
       if (!userId) return ctx.reply('Unable to identify user.');
       this.photoService.startUploadSession(userId);
-      ctx.reply('Vui lòng gửi hình ảnh để upload lên Supabase Storage.');
+      ctx.reply('Vui lòng gửi hình ảnh');
     });
 
     // /report_image command

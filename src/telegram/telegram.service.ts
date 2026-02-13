@@ -5,19 +5,25 @@ import {
   OnModuleInit,
   OnModuleDestroy,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Telegraf, Context } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { Update } from 'telegraf/types';
+import { randomUUID } from 'crypto';
+import { OcrJobStatus } from '../database/entities/ocr-job.entity';
+import { OcrResultCallbackDto } from './dto/ocr-result-callback.dto';
+import { OcrResultResponseDto } from './dto/ocr-result-response.dto';
+import { OcrJobRepository } from './repositories/ocr-job.repository';
 import { ReportImageService } from './services/report-image.service';
 import { TelegramConversationService } from './services/telegram-conversation.service';
 import { TelegramCommandsService } from './services/telegram-commands.service';
 import { TelegramDepositService } from './services/telegram-deposit.service';
 import { TelegramCertificateService } from './services/telegram-certificate.service';
 import { TelegramPhotoService } from './services/telegram-photo.service';
-import { OcrJobRepository } from './repositories/ocr-job.repository';
 import { SupabaseStorageService } from './services/supabase-storage.service';
+import { TelegramOcrService } from './services/telegram-ocr.service';
 import { GetSignedUrlDto } from './dto/get-signed-url.dto';
 import { SignedUrlResponseDto } from './dto/signed-url-response.dto';
 
@@ -43,6 +49,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly certificateService: TelegramCertificateService,
     private readonly photoService: TelegramPhotoService,
     private readonly ocrJobRepository: OcrJobRepository,
+    private readonly telegramOcrService: TelegramOcrService,
     private readonly supabaseStorageService: SupabaseStorageService,
   ) {
     this.botToken = this.configService.get<string>('telegram.botToken') ?? '';
@@ -99,7 +106,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     if (whitelistEnv) {
       const userIds = whitelistEnv
         .split(',')
-        .map((id) => parseInt(id.trim(), 10))
+        .map((s) => Number(s.trim()))
         .filter((id) => !isNaN(id));
 
       this.allowedUserIds = new Set(userIds);
@@ -143,7 +150,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       const userId = ctx.from?.id;
       if (!userId) return ctx.reply('Unable to identify user.');
       this.photoService.startUploadSession(userId);
-      ctx.reply('Vui lòng gửi hình ảnh');
+      ctx.reply('Vui lòng gửi hình ảnh để upload lên Supabase Storage.');
     });
 
     // /report_image command
@@ -286,9 +293,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
    */
   private async handleReportImageCommand(ctx: Context): Promise<void> {
     if (this.isGeneratingReport) {
-      ctx.reply(
-        '⏳ Hệ thống đang bận xử lí báo cáo, vui lòng thử lại sau ít phút.',
-      );
+      ctx.reply('Báo cáo đang được tạo, thử lại sau.');
       return;
     }
 
@@ -331,6 +336,63 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       this.logger.error('Error handling update:', error);
       throw error;
     }
+  }
+
+  /**
+   * OCR worker callback: persist OCR result + send Telegram confirmation buttons
+   */
+  async handleOcrResultCallback(
+    jobId: string,
+    dto: OcrResultCallbackDto,
+  ): Promise<OcrResultResponseDto> {
+    const job = await this.ocrJobRepository.findById(jobId);
+    if (!job) {
+      throw new NotFoundException(`OCR job not found: ${jobId}`);
+    }
+
+    if (
+      job.status === OcrJobStatus.CONFIRMED ||
+      job.status === OcrJobStatus.REJECTED
+    ) {
+      throw new BadRequestException('OCR job is already finalized');
+    }
+
+    const confirmToken = randomUUID();
+
+    const updatedJob = await this.ocrJobRepository.markNeedConfirm(jobId, {
+      resultJson: dto.resultJson,
+      confirmToken,
+    });
+
+    if (!updatedJob) {
+      throw new NotFoundException(`OCR job not found after update: ${jobId}`);
+    }
+
+    const chatId = Number(updatedJob.tgChatId);
+    if (isNaN(chatId)) {
+      throw new BadRequestException('Invalid chat id stored on OCR job');
+    }
+
+    const sentMessage = await this.telegramOcrService.sendNeedConfirmMessage(
+      this.bot,
+      chatId,
+      updatedJob.id,
+      confirmToken,
+      dto.resultJson,
+      dto.warnings,
+    );
+
+    await this.ocrJobRepository.updateSentMessageId(
+      updatedJob.id,
+      String(sentMessage.message_id),
+    );
+
+    return {
+      success: true,
+      jobId: updatedJob.id,
+      status: OcrJobStatus.NEED_CONFIRM,
+      tgSentMessageId: String(sentMessage.message_id),
+    };
   }
 
   /**

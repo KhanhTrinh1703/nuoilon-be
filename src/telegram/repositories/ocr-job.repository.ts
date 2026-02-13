@@ -14,6 +14,11 @@ export interface CreateOcrJobInput {
   maxAttempts?: number;
 }
 
+export interface MarkNeedConfirmInput {
+  resultJson: Record<string, unknown>;
+  confirmToken: string;
+}
+
 @Injectable()
 export class OcrJobRepository {
   constructor(
@@ -49,13 +54,10 @@ export class OcrJobRepository {
         status: input.status ?? OcrJobStatus.PENDING,
       });
     } catch (err: unknown) {
-      // Postgres unique violation (race or re-upload of same Telegram file_unique_id)
       const code = (err as { code?: unknown } | null)?.code;
       if (code === '23505') {
         const after = await this.findByIdempotencyKey(input.tgFileUniqueId);
-        if (after) {
-          return after;
-        }
+        if (after) return after;
       }
       throw err;
     }
@@ -78,5 +80,26 @@ export class OcrJobRepository {
   async incrementAttempts(id: string): Promise<OcrJob | null> {
     await this.repository.increment({ id }, 'attempts', 1);
     return this.findById(id);
+  }
+
+  async markNeedConfirm(
+    id: string,
+    input: MarkNeedConfirmInput,
+  ): Promise<OcrJob | null> {
+    const existing = await this.findById(id);
+    if (!existing) return null;
+
+    existing.status = OcrJobStatus.NEED_CONFIRM;
+    existing.ocrResultJson = input.resultJson;
+    existing.confirmToken = input.confirmToken;
+
+    return this.repository.save(existing);
+  }
+
+  async updateSentMessageId(
+    id: string,
+    tgSentMessageId: string,
+  ): Promise<void> {
+    await this.repository.update({ id }, { tgSentMessageId });
   }
 }

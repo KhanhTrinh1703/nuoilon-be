@@ -10,6 +10,8 @@ import {
   ParseFilePipe,
   MaxFileSizeValidator,
   FileTypeValidator,
+  Param,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -27,6 +29,8 @@ import { HmacSignatureGuard } from '../common/guards/hmac-signature.guard';
 import { UploadImageDto } from './dto/upload-image.dto';
 import { GetSignedUrlDto } from './dto/get-signed-url.dto';
 import { SignedUrlResponseDto } from './dto/signed-url-response.dto';
+import { OcrResultCallbackDto } from './dto/ocr-result-callback.dto';
+import { OcrResultResponseDto } from './dto/ocr-result-response.dto';
 import type { Update } from 'telegraf/types';
 import {
   IMAGE_FILE_ALLOWED_MIME_TYPES,
@@ -78,22 +82,6 @@ export class TelegramController {
       type: 'object',
       properties: {
         success: { type: 'boolean', example: true },
-        webUrl: {
-          type: 'string',
-          example: 'https://example.supabase.co/storage/v1/object/...',
-        },
-        uploadLog: {
-          type: 'object',
-          properties: {
-            id: { type: 'number', example: 1 },
-            userId: { type: 'string', example: 'test-user' },
-            filename: { type: 'string', example: 'test-image.jpg' },
-            size: { type: 'number', example: 152048 },
-            url: { type: 'string' },
-            description: { type: 'string', nullable: true },
-            uploadedAt: { type: 'string', format: 'date-time' },
-          },
-        },
       },
     },
   })
@@ -106,10 +94,7 @@ export class TelegramController {
         validators: [
           new MaxFileSizeValidator({ maxSize: IMAGE_FILE_MAX_SIZE_BYTES }),
           new FileTypeValidator({
-            fileType: new RegExp(
-              `^(${IMAGE_FILE_ALLOWED_MIME_TYPES.map((t) => t.replace('/', '/')).join('|')})$`,
-              'i',
-            ),
+            fileType: IMAGE_FILE_ALLOWED_MIME_TYPES.join('|'),
           }),
         ],
       }),
@@ -161,5 +146,29 @@ export class TelegramController {
     @Body() dto: GetSignedUrlDto,
   ): Promise<SignedUrlResponseDto> {
     return this.telegramService.getOcrJobSignedUrl(dto);
+  }
+
+  @Post('ocr-jobs/:jobId/result')
+  @UseGuards(HmacSignatureGuard)
+  @ApiSecurity('HMAC-Signature')
+  @ApiOperation({
+    summary: 'OCR worker callback to submit parsed OCR result for confirmation',
+    description:
+      'Accepts OCR result payload from Python worker, sets OCR job status to NEED_CONFIRM, and sends Telegram inline confirm/reject buttons to the original user chat.',
+  })
+  @ApiBody({ type: OcrResultCallbackDto })
+  @ApiResponse({
+    status: 201,
+    description: 'OCR result accepted and confirmation message sent',
+    type: OcrResultResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid job state or payload' })
+  @ApiResponse({ status: 401, description: 'Missing/invalid HMAC headers' })
+  @ApiResponse({ status: 404, description: 'OCR job not found' })
+  async handleOcrResultCallback(
+    @Param('jobId', new ParseUUIDPipe()) jobId: string,
+    @Body() dto: OcrResultCallbackDto,
+  ): Promise<OcrResultResponseDto> {
+    return await this.telegramService.handleOcrResultCallback(jobId, dto);
   }
 }

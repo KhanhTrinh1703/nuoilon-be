@@ -40,4 +40,7 @@ export default () => ({
     exchange: process.env.RABBITMQ_EXCHANGE || 'direct',
     queue: process.env.RABBITMQ_QUEUE || 'ocr-ocr_jobs',
   },
+  ocr: {
+    maxAttempts: parseInt(process.env.OCR_MAX_ATTEMPTS ?? '2', 10) || 2,
+  },
 });

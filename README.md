@@ -36,15 +36,31 @@ Nuoilon is a multi-client NestJS 11 backend that tracks fund transactions and NA
 - `/upload` streams Telegram images to Firebase Storage, renames them to `{timestamp}_{telegramUserId}_{originalName}`, validates JPEG/PNG/GIF/WebP files up to 25MB, and enforces 20 uploads per user per day.
 - File validation guarantees only JPEG/PNG/GIF/WebP files under 25MB reach Supabase Storage, and the public REST `/telegram/upload-image` endpoint shares the exact same rules.
 - Repository-driven TypeORM data access writing to PostgreSQL/NeonDB.
+
+<p align="center">
+  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+</p>
+
+## Nuoilon Backend
+
+## Overview
+Nuoilon is a multi-client NestJS 11 backend for fund transaction tracking, reporting, Telegram automation, and OCR-assisted transaction extraction.
+
+## Features
+- Multi-client modules with isolated Swagger documentation for each surface.
+- Telegram bot commands `/hi`, `/reports`, `/upload`, `/input` with Vietnamese responses.
+- OCR pipeline via RabbitMQ + Python worker for Telegram image uploads.
+- Inline Telegram confirmation/rejection for OCR results before saving to DB.
+- Repository-driven TypeORM data access with PostgreSQL/NeonDB.
 - Static OpenAPI export under `docs/` for sharing API references.
-- Configurable dual database mode (env switch between local params and `DATABASE_URL`).
+- Configurable dual database mode (`DATABASE_URL` or local DB vars).
 
 ## Tech Stack
 - Node.js 20+, TypeScript 5.7
 - NestJS 11, Telegraf 4.16
 - TypeORM 0.3 + PostgreSQL/Neon
-- Axios, class-validator/transformer
-- ESLint + Prettier + Jest
+- RabbitMQ (`amqplib`) for OCR job queue
+- class-validator/class-transformer, Swagger, ESLint
 
 ## Getting Started
 1. Install dependencies:
@@ -53,19 +69,21 @@ Nuoilon is a multi-client NestJS 11 backend that tracks fund transactions and NA
 npm install
 ```
 
-2. Create a `.env` file from the sample and populate secrets:
+2. Create `.env` from template:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Apply pending migrations (PostgreSQL must be reachable):
+3. Configure DB + Telegram + Supabase + RabbitMQ in `.env`.
+
+4. Run migrations:
 
 ```bash
 npm run migration:run
 ```
 
-4. Start the API in watch mode:
+5. Start API in dev mode:
 
 ```bash
 npm run start:dev
@@ -73,18 +91,12 @@ npm run start:dev
 
 ## Required Environment Variables
 
-```
+```dotenv
 PORT=3000
-
-# Environment (development | production | test)
 NODE_ENV=development
-
-# Application Mode (web | schedule)
-# web: Full API server with all modules (default)
-# schedule: Only database and scheduled tasks, no HTTP endpoints
 APP_MODE=web
 
-# Local database (omit when DATABASE_URL is set)
+# Local DB (omit when DATABASE_URL is set)
 DB_HOST=localhost
 DB_PORT=5432
 DB_USERNAME=postgres
@@ -94,85 +106,89 @@ DB_SYNCHRONIZE=false
 DB_LOGGING=true
 DB_MIGRATIONS_RUN=false
 
-# Cloud database (NeonDB)
-# DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
+# Cloud DB (optional alternative)
+# DATABASE_URL=postgresql://.../dbname?sslmode=require
 
-# Security Configuration
+# Security
 ACTIVE_SECRET=replace-me
 
-# Telegram Bot Configuration
+# Telegram
 TELEGRAM_BOT_TOKEN=bot-token-from-botfather
 TELEGRAM_WEBHOOK_URL=https://your-domain.com/api/v1/telegram/webhook
 
-# Supabase (Telegram /upload)
+# Supabase
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 SUPABASE_STORAGE_BUCKET=telegram-uploads
 SUPABASE_UPLOAD_FOLDER=images
 
+# RabbitMQ
+RABBITMQ_URL=amqp://guest:guest@localhost:5672
+RABBITMQ_EXCHANGE=direct
+RABBITMQ_QUEUE=ocr-ocr_jobs
+
+# OCR
+OCR_MAX_ATTEMPTS=2
 ```
 
+## OCR Integration Flow
+1. User uploads image from Telegram `/upload`.
+2. Backend saves image to Supabase and creates `ocr_jobs` record.
+3. Backend publishes job to RabbitMQ queue `ocr-ocr_jobs`.
+4. Python worker requests signed URL and processes OCR.
+5. Worker posts OCR result to `/api/v1/telegram/ocr-jobs/:jobId/result`.
+6. Backend sends Vietnamese review message with inline buttons.
+7. User confirms/rejects:
+   - Confirm -> save to `deposit_transactions` or `certificate_transactions`.
+   - Reject -> mark OCR job as rejected.
+8. Worker error callback retries immediately up to `OCR_MAX_ATTEMPTS`.
+
+## OCR Worker Endpoints (HMAC-protected)
+- `POST /api/v1/telegram/ocr-jobs/signed-url`
+- `POST /api/v1/telegram/ocr-jobs/:jobId/result`
+- `POST /api/v1/telegram/ocr-jobs/:jobId/error`
+
+Headers:
+- `X-Timestamp`
+- `X-Signature`
+
+## Documentation
+- Main docs index: `docs/index.html`
+- OCR integration guide: `docs/OCR_INTEGRATION.md`
+- Swagger endpoints:
+  - `/api/docs/web`
+  - `/api/docs/telegram`
+  - `/api/docs/appscripts`
+  - `/api/docs/report`
+  - `/api/docs` (aggregate)
+
 ## Database & Migrations
-- Keep `DB_SYNCHRONIZE=false` in all environments; rely on migrations only.
-- Generate migrations from entity changes:
+Use migrations only (`DB_SYNCHRONIZE=false`).
 
 ```bash
 npm run migration:generate -- src/database/migrations/Name
-```
-
-- Run or revert migrations:
-
-```bash
 npm run migration:run
 npm run migration:revert
 ```
 
-## Telegram Bot Workflow
-- `/hi`: playful greeting in Vietnamese.
-- `/reports`: aggregates monthly investment stats from `excel_transactions` plus the latest NAV from `fund_prices`, then posts a Markdown summary.
-- `/upload`: prompts for an image, validates MIME (`image/jpeg`, `image/png`, `image/gif`, `image/webp`) and file size (≤25MB), enforces 20 uploads per user per day, streams the highest-resolution Telegram photo to Firebase Storage, records the action in `upload_logs`, and replies with either the public URL or `❌ File validation failed: <reason>` when the guardrails are violated.
-- Error messages surfaced to users:
-  - "You've reached your daily upload limit (20 files). Try again tomorrow."
-  - "Upload failed. Please try again later."
-
-## File Upload Validation Rules
-Both the REST endpoint (`POST /api/v1/telegram/upload-image`) and the Telegram `/upload` command enforce identical constraints before invoking Supabase Storage:
-
-- **Max file size:** 25MB (26,214,400 bytes).
-- **Allowed MIME types:** `image/jpeg`, `image/png`, `image/gif`, `image/webp`.
-- **Allowed extensions:** `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`.
-- **REST responses:** invalid payloads return `400 Bad Request` with either `File size exceeds 25MB limit` or `Only image files are allowed`.
-- **Telegram responses:** `/upload` replies with `❌ File validation failed: ...` for violations, while unsolicited photo messages outside the command remain ignored.
-
-## Static Documentation
-- Generate JSON + HTML docs (requires database connectivity):
+## Useful Commands
 
 ```bash
-npm run docs:generate
-```
-
-- Serve the docs locally:
-
-```bash
-npm run docs:serve
-```
-
-Swagger endpoints:
-
-- `/api/docs/web`
-- `/api/docs/telegram`
-- `/api/docs/appscripts`
-- `/api/docs` (aggregate)
-
-## Testing & Quality Gates
-
-```bash
-npm run lint
+npm run start:dev
 npm run typecheck
+npm run lint
+npm run docs:generate
+npm run docs:serve
+npm run telegram:setup
 ```
+
+## Telegram Notes
+- `/upload` validates JPEG/PNG/GIF/WebP under 25MB and enforces daily per-user limits.
+- OCR user-facing messages are in Vietnamese.
+- Confirmation callback buttons are token-protected to prevent replay misuse.
 
 ## Troubleshooting
-- **Webhook inactive**: ensure `TELEGRAM_WEBHOOK_URL` is HTTPS and reachable; run `npm run telegram:setup` if needed.
-- **Firebase 401/403**: confirm the service account has the Storage Admin role and the bucket rules allow server-side writes.
-- **Uploads rejected immediately**: check server time drift; rate limiting uses the server's local date boundaries.
-- **Docs generation fails**: verify the database connection string because `npm run docs:generate` boots the full NestJS context.
+- Webhook not receiving updates: verify `TELEGRAM_WEBHOOK_URL` is HTTPS + reachable.
+- HMAC 401 errors: verify `ACTIVE_SECRET` and canonical signature payload.
+- OCR retries not published: verify RabbitMQ env vars + broker connectivity.
+- Docs generation fails: ensure DB is reachable because app context is fully bootstrapped.

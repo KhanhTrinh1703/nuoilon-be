@@ -12,20 +12,28 @@ import { Telegraf, Context } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { Update } from 'telegraf/types';
 import { randomUUID } from 'crypto';
-import { OcrJobStatus } from '../database/entities/ocr-job.entity';
+import { OcrJob, OcrJobStatus } from '../database/entities/ocr-job.entity';
 import { OcrResultCallbackDto } from './dto/ocr-result-callback.dto';
 import { OcrResultResponseDto } from './dto/ocr-result-response.dto';
 import { OcrJobRepository } from './repositories/ocr-job.repository';
+import { DepositTransactionRepository } from './repositories/deposit-transaction.repository';
+import { CertificateTransactionRepository } from './repositories/certificate-transaction.repository';
 import { ReportImageService } from './services/report-image.service';
 import { TelegramConversationService } from './services/telegram-conversation.service';
 import { TelegramCommandsService } from './services/telegram-commands.service';
 import { TelegramDepositService } from './services/telegram-deposit.service';
 import { TelegramCertificateService } from './services/telegram-certificate.service';
 import { TelegramPhotoService } from './services/telegram-photo.service';
-import { SupabaseStorageService } from './services/supabase-storage.service';
 import { TelegramOcrService } from './services/telegram-ocr.service';
+import { SupabaseStorageService } from './services/supabase-storage.service';
 import { GetSignedUrlDto } from './dto/get-signed-url.dto';
 import { SignedUrlResponseDto } from './dto/signed-url-response.dto';
+
+interface OcrCallbackData {
+  action: 'confirm' | 'reject';
+  jobId: string;
+  token: string;
+}
 
 /**
  * Main Telegram service that coordinates all bot functionality
@@ -49,6 +57,8 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly certificateService: TelegramCertificateService,
     private readonly photoService: TelegramPhotoService,
     private readonly ocrJobRepository: OcrJobRepository,
+    private readonly depositTransactionRepository: DepositTransactionRepository,
+    private readonly certificateTransactionRepository: CertificateTransactionRepository,
     private readonly telegramOcrService: TelegramOcrService,
     private readonly supabaseStorageService: SupabaseStorageService,
   ) {
@@ -106,7 +116,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     if (whitelistEnv) {
       const userIds = whitelistEnv
         .split(',')
-        .map((s) => Number(s.trim()))
+        .map((id) => parseInt(id.trim(), 10))
         .filter((id) => !isNaN(id));
 
       this.allowedUserIds = new Set(userIds);
@@ -232,6 +242,14 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       await this.certificateService.handleCustomDate(ctx);
     });
 
+    this.bot.action(/^ocr_confirm_[^_]+_[^_]+$/, async (ctx) => {
+      await this.handleOcrConfirmAction(ctx);
+    });
+
+    this.bot.action(/^ocr_reject_[^_]+_[^_]+$/, async (ctx) => {
+      await this.handleOcrRejectAction(ctx);
+    });
+
     // Error handler
     this.bot.catch((err: any, ctx: Context) => {
       this.logger.error(`Error for ${ctx.updateType}:`, err);
@@ -293,7 +311,9 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
    */
   private async handleReportImageCommand(ctx: Context): Promise<void> {
     if (this.isGeneratingReport) {
-      ctx.reply('Báo cáo đang được tạo, thử lại sau.');
+      ctx.reply(
+        '⏳ Hệ thống đang bận xử lí báo cáo, vui lòng thử lại sau ít phút.',
+      );
       return;
     }
 
@@ -361,6 +381,9 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
 
     const updatedJob = await this.ocrJobRepository.markNeedConfirm(jobId, {
       resultJson: dto.resultJson,
+      provider: dto.provider,
+      model: dto.model,
+      warnings: dto.warnings,
       confirmToken,
     });
 
@@ -370,7 +393,9 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
 
     const chatId = Number(updatedJob.tgChatId);
     if (isNaN(chatId)) {
-      throw new BadRequestException('Invalid chat id stored on OCR job');
+      throw new BadRequestException(
+        `Invalid tgChatId on OCR job ${jobId}: ${updatedJob.tgChatId}`,
+      );
     }
 
     const sentMessage = await this.telegramOcrService.sendNeedConfirmMessage(
@@ -393,6 +418,216 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       status: OcrJobStatus.NEED_CONFIRM,
       tgSentMessageId: String(sentMessage.message_id),
     };
+  }
+
+  private async handleOcrConfirmAction(ctx: Context): Promise<void> {
+    await ctx.answerCbQuery();
+
+    try {
+      const callbackData = this.extractOcrCallbackData(ctx, 'confirm');
+      if (!callbackData) {
+        await ctx.reply('❌ Dữ liệu xác nhận không hợp lệ.');
+        return;
+      }
+
+      const job = await this.ocrJobRepository.findById(callbackData.jobId);
+      if (!job) {
+        await ctx.reply('❌ Không tìm thấy OCR job.');
+        return;
+      }
+
+      if (job.status === OcrJobStatus.CONFIRMED) {
+        await ctx.reply('⚠️ Giao dịch này đã được xác nhận trước đó.');
+        return;
+      }
+
+      if (job.status === OcrJobStatus.REJECTED) {
+        await ctx.reply('⚠️ Giao dịch này đã bị từ chối trước đó.');
+        return;
+      }
+
+      if (job.status !== OcrJobStatus.NEED_CONFIRM) {
+        await ctx.reply('❌ OCR job chưa sẵn sàng để xác nhận.');
+        return;
+      }
+
+      if (!job.confirmToken || job.confirmToken !== callbackData.token) {
+        await ctx.reply('❌ Token xác nhận không hợp lệ hoặc đã hết hạn.');
+        return;
+      }
+
+      const resultJson =
+        (job.ocrResultJson as Record<string, unknown> | null) ?? undefined;
+
+      if (!resultJson) {
+        throw new BadRequestException(
+          `Missing OCR resultJson for job ${job.id}`,
+        );
+      }
+
+      const transactionType =
+        this.telegramOcrService.resolveTransactionType(resultJson);
+
+      const transactionSourceId = `ocr_${job.id}`;
+      let transactionRecordId: string;
+
+      if (transactionType === 'DEPOSIT') {
+        const parsed = this.telegramOcrService.parseDepositResult(resultJson);
+
+        const saved = await this.depositTransactionRepository.upsertFromOcr({
+          transactionDate: parsed.transactionDate,
+          amount: parsed.amount,
+          transactionId: transactionSourceId,
+        });
+
+        transactionRecordId = saved.id;
+      } else {
+        const parsed =
+          this.telegramOcrService.parseCertificateResult(resultJson);
+
+        const saved = await this.certificateTransactionRepository.upsertFromOcr(
+          {
+            transactionDate: parsed.transactionDate,
+            numberOfCertificates: parsed.numberOfCertificates,
+            price: parsed.price,
+            transactionId: transactionSourceId,
+          },
+        );
+
+        transactionRecordId = saved.id;
+      }
+
+      await this.ocrJobRepository.markConfirmed(
+        job.id,
+        transactionRecordId,
+        new Date(),
+      );
+
+      await this.editDecisionMessage(
+        job,
+        this.telegramOcrService.buildConfirmedText(),
+      );
+
+      this.logger.log(
+        `OCR job confirmed: jobId=${job.id}, transactionType=${transactionType}, transactionRecordId=${transactionRecordId}`,
+      );
+    } catch (error) {
+      this.logger.error('Error handling OCR confirm callback:', error);
+      await ctx.reply('❌ Không thể xác nhận OCR lúc này. Vui lòng thử lại.');
+    }
+  }
+
+  private async handleOcrRejectAction(ctx: Context): Promise<void> {
+    await ctx.answerCbQuery();
+
+    try {
+      const callbackData = this.extractOcrCallbackData(ctx, 'reject');
+      if (!callbackData) {
+        await ctx.reply('❌ Dữ liệu từ chối không hợp lệ.');
+        return;
+      }
+
+      const job = await this.ocrJobRepository.findById(callbackData.jobId);
+      if (!job) {
+        await ctx.reply('❌ Không tìm thấy OCR job.');
+        return;
+      }
+
+      if (job.status === OcrJobStatus.REJECTED) {
+        await ctx.reply('⚠️ OCR job này đã bị từ chối trước đó.');
+        return;
+      }
+
+      if (job.status === OcrJobStatus.CONFIRMED) {
+        await ctx.reply('⚠️ OCR job này đã được xác nhận trước đó.');
+        return;
+      }
+
+      if (job.status !== OcrJobStatus.NEED_CONFIRM) {
+        await ctx.reply('❌ OCR job chưa sẵn sàng để từ chối.');
+        return;
+      }
+
+      if (!job.confirmToken || job.confirmToken !== callbackData.token) {
+        await ctx.reply('❌ Token từ chối không hợp lệ hoặc đã hết hạn.');
+        return;
+      }
+
+      await this.ocrJobRepository.markRejected(job.id, new Date());
+      await this.editDecisionMessage(
+        job,
+        this.telegramOcrService.buildRejectedText(),
+      );
+
+      this.logger.log(`OCR job rejected: jobId=${job.id}`);
+    } catch (error) {
+      this.logger.error('Error handling OCR reject callback:', error);
+      await ctx.reply('❌ Không thể từ chối OCR lúc này. Vui lòng thử lại.');
+    }
+  }
+
+  private extractOcrCallbackData(
+    ctx: Context,
+    expectedAction: 'confirm' | 'reject',
+  ): OcrCallbackData | null {
+    const callbackQuery = ctx.callbackQuery;
+    if (
+      !callbackQuery ||
+      !('data' in callbackQuery) ||
+      typeof callbackQuery.data !== 'string'
+    ) {
+      return null;
+    }
+
+    const raw = callbackQuery.data;
+    const parts = raw.split('_');
+    if (parts.length !== 4) {
+      return null;
+    }
+
+    const [prefix, action, jobId, token] = parts;
+
+    if (prefix !== 'ocr') {
+      return null;
+    }
+
+    if (action !== expectedAction) {
+      return null;
+    }
+
+    if (!jobId || !token) {
+      return null;
+    }
+
+    return {
+      action: expectedAction,
+      jobId,
+      token,
+    };
+  }
+
+  private async editDecisionMessage(job: OcrJob, text: string): Promise<void> {
+    const chatId = Number(job.tgChatId);
+    const messageId = Number(job.tgSentMessageId);
+
+    if (isNaN(chatId) || isNaN(messageId)) {
+      this.logger.warn(
+        `Skip OCR message edit due to invalid chat/message id: jobId=${job.id}, tgChatId=${job.tgChatId}, tgSentMessageId=${job.tgSentMessageId}`,
+      );
+      return;
+    }
+
+    await this.bot.telegram.editMessageText(
+      chatId,
+      messageId,
+      undefined,
+      text,
+      {
+        reply_markup: {
+          inline_keyboard: [],
+        },
+      },
+    );
   }
 
   /**

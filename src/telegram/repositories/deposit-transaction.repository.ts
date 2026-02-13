@@ -70,4 +70,16 @@ export class DepositTransactionRepository {
 
     return await this.repository.save(transaction);
   }
+
+  async upsertFromOcr(data: {
+    transactionDate: string;
+    amount: number;
+    transactionId: string;
+  }): Promise<DepositTransaction> {
+    return this.upsertTransaction({
+      transactionDate: data.transactionDate,
+      capital: data.amount,
+      transactionId: data.transactionId,
+    });
+  }
 }

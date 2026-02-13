@@ -73,4 +73,13 @@ export class CertificateTransactionRepository {
 
     return await this.repository.save(transaction);
   }
+
+  async upsertFromOcr(data: {
+    transactionDate: string;
+    numberOfCertificates: number;
+    price: number;
+    transactionId: string;
+  }): Promise<CertificateTransaction> {
+    return this.upsertTransaction(data);
+  }
 }

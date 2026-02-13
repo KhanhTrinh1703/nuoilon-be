@@ -1,5 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Telegraf } from 'telegraf';
+
+export interface ParsedDepositOcrData {
+  transactionDate: string;
+  amount: number;
+}
+
+export interface ParsedCertificateOcrData {
+  transactionDate: string;
+  numberOfCertificates: number;
+  price: number;
+}
 
 @Injectable()
 export class TelegramOcrService {
@@ -19,7 +30,7 @@ export class TelegramOcrService {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          /* Lines 145-157 omitted */
+          /* Lines 208-220 omitted */
         ],
       },
     });
@@ -79,6 +90,92 @@ export class TelegramOcrService {
     return lines.join('\n');
   }
 
+  resolveTransactionType(
+    resultJson: Record<string, unknown>,
+  ): 'DEPOSIT' | 'CERTIFICATE' {
+    const raw = this.toSafeString(resultJson.transactionType).toUpperCase();
+
+    if (raw === 'DEPOSIT' || raw === 'CERTIFICATE') {
+      return raw;
+    }
+
+    throw new BadRequestException(
+      `Unsupported transactionType: ${resultJson.transactionType as string}`,
+    );
+  }
+
+  parseDepositResult(
+    resultJson: Record<string, unknown>,
+  ): ParsedDepositOcrData {
+    const transactionDate = this.parseRequiredDate(
+      resultJson.transactionDate ?? resultJson.date,
+      'transactionDate',
+    );
+
+    const amount = this.parseRequiredNumber(
+      resultJson.amount ?? resultJson.capital,
+      'amount',
+    );
+
+    return {
+      transactionDate,
+      amount,
+    };
+  }
+
+  parseCertificateResult(
+    resultJson: Record<string, unknown>,
+  ): ParsedCertificateOcrData {
+    const transactionDate = this.parseRequiredDate(
+      resultJson.transactionDate ?? resultJson.date,
+      'transactionDate',
+    );
+
+    const numberOfCertificates = this.parseRequiredNumber(
+      resultJson.numberOfCertificates ?? resultJson.certificates,
+      'numberOfCertificates',
+    );
+
+    const price = this.parseRequiredNumber(resultJson.price, 'price');
+
+    return {
+      transactionDate,
+      numberOfCertificates,
+      price,
+    };
+  }
+
+  buildConfirmedText(): string {
+    return '✅ Đã xác nhận và lưu giao dịch';
+  }
+
+  buildRejectedText(): string {
+    return '❌ Đã từ chối';
+  }
+
+  private parseRequiredDate(value: unknown, field: string): string {
+    const text = this.toSafeString(value);
+    if (!text) {
+      throw new BadRequestException(`Missing required OCR field: ${field}`);
+    }
+
+    const date = new Date(text);
+    if (isNaN(date.getTime())) {
+      throw new BadRequestException(`Invalid OCR date for field: ${field}`);
+    }
+
+    return text;
+  }
+
+  private parseRequiredNumber(value: unknown, field: string): number {
+    const parsed = this.toSafeNumber(value);
+    if (parsed === null) {
+      throw new BadRequestException(`Invalid OCR number for field: ${field}`);
+    }
+
+    return parsed;
+  }
+
   private mapTransactionType(transactionType: string): string {
     if (transactionType === 'DEPOSIT') {
       return 'Gửi tiền';
@@ -127,7 +224,7 @@ export class TelegramOcrService {
     }
 
     if (typeof value === 'string') {
-      const normalized = value.replace(/[,.\n+\s]/g, '');
+      const normalized = value.replace(/[,\s]/g, '');
       const parsed = Number(normalized);
       if (!isNaN(parsed)) {
         return parsed;

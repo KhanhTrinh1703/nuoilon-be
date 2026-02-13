@@ -16,6 +16,9 @@ export interface CreateOcrJobInput {
 
 export interface MarkNeedConfirmInput {
   resultJson: Record<string, unknown>;
+  provider: string;
+  model: string;
+  warnings?: string[];
   confirmToken: string;
 }
 
@@ -86,14 +89,16 @@ export class OcrJobRepository {
     id: string,
     input: MarkNeedConfirmInput,
   ): Promise<OcrJob | null> {
-    const existing = await this.findById(id);
-    if (!existing) return null;
+    await this.repository.update(
+      { id },
+      {
+        status: OcrJobStatus.NEED_CONFIRM,
+        /* Lines 125-129 omitted */
+        confirmToken: input.confirmToken,
+      },
+    );
 
-    existing.status = OcrJobStatus.NEED_CONFIRM;
-    existing.ocrResultJson = input.resultJson;
-    existing.confirmToken = input.confirmToken;
-
-    return this.repository.save(existing);
+    return this.findById(id);
   }
 
   async updateSentMessageId(
@@ -101,5 +106,34 @@ export class OcrJobRepository {
     tgSentMessageId: string,
   ): Promise<void> {
     await this.repository.update({ id }, { tgSentMessageId });
+  }
+
+  async markConfirmed(
+    id: string,
+    transactionId: string,
+    confirmedAt: Date,
+  ): Promise<OcrJob | null> {
+    await this.repository.update(
+      { id },
+      {
+        status: OcrJobStatus.CONFIRMED,
+        /* Lines 149-150 omitted */
+        confirmedAt,
+      },
+    );
+
+    return this.findById(id);
+  }
+
+  async markRejected(id: string, rejectedAt: Date): Promise<OcrJob | null> {
+    await this.repository.update(
+      { id },
+      {
+        status: OcrJobStatus.REJECTED,
+        rejectedAt,
+      },
+    );
+
+    return this.findById(id);
   }
 }

@@ -136,4 +136,21 @@ export class OcrJobRepository {
 
     return this.findById(id);
   }
+
+  async updateLastError(id: string, lastError: string): Promise<OcrJob | null> {
+    await this.repository.update({ id }, { lastError });
+    return this.findById(id);
+  }
+
+  async markFailed(id: string, lastError: string): Promise<OcrJob | null> {
+    await this.repository.update(
+      { id },
+      {
+        status: OcrJobStatus.FAILED,
+        lastError,
+      },
+    );
+
+    return this.findById(id);
+  }
 }

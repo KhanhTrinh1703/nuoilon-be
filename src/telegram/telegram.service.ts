@@ -15,6 +15,7 @@ import { randomUUID } from 'crypto';
 import { OcrJob, OcrJobStatus } from '../database/entities/ocr-job.entity';
 import { OcrResultCallbackDto } from './dto/ocr-result-callback.dto';
 import { OcrResultResponseDto } from './dto/ocr-result-response.dto';
+import { OcrErrorCallbackDto } from './dto/ocr-error-callback.dto';
 import { OcrJobRepository } from './repositories/ocr-job.repository';
 import { DepositTransactionRepository } from './repositories/deposit-transaction.repository';
 import { CertificateTransactionRepository } from './repositories/certificate-transaction.repository';
@@ -26,6 +27,7 @@ import { TelegramCertificateService } from './services/telegram-certificate.serv
 import { TelegramPhotoService } from './services/telegram-photo.service';
 import { TelegramOcrService } from './services/telegram-ocr.service';
 import { SupabaseStorageService } from './services/supabase-storage.service';
+import { RabbitMQPublisherService } from './services/rabbitmq-publisher.service';
 import { GetSignedUrlDto } from './dto/get-signed-url.dto';
 import { SignedUrlResponseDto } from './dto/signed-url-response.dto';
 
@@ -61,6 +63,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly certificateTransactionRepository: CertificateTransactionRepository,
     private readonly telegramOcrService: TelegramOcrService,
     private readonly supabaseStorageService: SupabaseStorageService,
+    private readonly rabbitmqPublisherService: RabbitMQPublisherService,
   ) {
     this.botToken = this.configService.get<string>('telegram.botToken') ?? '';
     this.webhookUrl =
@@ -417,6 +420,118 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       jobId: updatedJob.id,
       status: OcrJobStatus.NEED_CONFIRM,
       tgSentMessageId: String(sentMessage.message_id),
+    };
+  }
+
+  async handleOcrErrorCallback(
+    jobId: string,
+    dto: OcrErrorCallbackDto,
+  ): Promise<{
+    success: boolean;
+    jobId: string;
+    status: string;
+    attempts: number;
+    maxAttempts: number;
+    retried: boolean;
+    message: string;
+  }> {
+    const job = await this.ocrJobRepository.findById(jobId);
+    if (!job) {
+      throw new NotFoundException(`OCR job not found: ${jobId}`);
+    }
+
+    if (
+      job.status === OcrJobStatus.CONFIRMED ||
+      job.status === OcrJobStatus.REJECTED ||
+      job.status === OcrJobStatus.FAILED
+    ) {
+      throw new BadRequestException('OCR job is already finalized');
+    }
+
+    const composedError = dto.errorCode
+      ? `[${dto.errorCode}] ${dto.errorMessage}`
+      : dto.errorMessage;
+
+    const incremented = await this.ocrJobRepository.incrementAttempts(jobId);
+    if (!incremented) {
+      throw new NotFoundException(
+        `OCR job not found after increment: ${jobId}`,
+      );
+    }
+
+    const withError = await this.ocrJobRepository.updateLastError(
+      jobId,
+      composedError,
+    );
+
+    if (!withError) {
+      throw new NotFoundException(
+        `OCR job not found after error update: ${jobId}`,
+      );
+    }
+
+    const attempts = withError.attempts;
+    const maxAttempts = withError.maxAttempts;
+
+    if (attempts < maxAttempts) {
+      await this.ocrJobRepository.updateStatus(jobId, OcrJobStatus.PENDING);
+
+      // Republish immediately for retry
+      try {
+        await this.rabbitmqPublisherService.publishOcrJob({
+          jobId: withError.id,
+          idempotencyKey: withError.tgFileUniqueId,
+          chatId: Number(withError.tgChatId),
+          userId: Number(withError.tgUserId),
+        });
+      } catch (err) {
+        this.logger.error(
+          'Failed to republish OCR job for retry',
+          err as Error,
+        );
+      }
+
+      return {
+        success: true,
+        jobId: withError.id,
+        status: OcrJobStatus.PENDING,
+        attempts,
+        maxAttempts,
+        retried: true,
+        message: 'OCR retry scheduled',
+      };
+    }
+
+    const failedJob = await this.ocrJobRepository.markFailed(
+      jobId,
+      composedError,
+    );
+    if (!failedJob) {
+      throw new NotFoundException(
+        `OCR job not found after markFailed: ${jobId}`,
+      );
+    }
+
+    const chatId = Number(failedJob.tgChatId);
+    if (!isNaN(chatId)) {
+      await this.bot.telegram.sendMessage(
+        chatId,
+        '❌ Không thể xử lý ảnh sau 2 lần thử. Vui lòng thử lại hoặc nhập thủ công.',
+      );
+    }
+
+    this.logger.error(
+      `OCR job failed permanently: jobId=${failedJob.id}, attempts=${attempts}/${maxAttempts}, error=${composedError}`,
+    );
+
+    return {
+      success: true,
+      jobId: failedJob.id,
+      status: OcrJobStatus.FAILED,
+      attempts,
+      maxAttempts,
+      retried: false,
+      message: `OCR failed after ${maxAttempts} attempts`,
     };
   }
 

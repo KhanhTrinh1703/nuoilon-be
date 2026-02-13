@@ -31,6 +31,7 @@ import { GetSignedUrlDto } from './dto/get-signed-url.dto';
 import { SignedUrlResponseDto } from './dto/signed-url-response.dto';
 import { OcrResultCallbackDto } from './dto/ocr-result-callback.dto';
 import { OcrResultResponseDto } from './dto/ocr-result-response.dto';
+import { OcrErrorCallbackDto } from './dto/ocr-error-callback.dto';
 import type { Update } from 'telegraf/types';
 import {
   IMAGE_FILE_ALLOWED_MIME_TYPES,
@@ -170,5 +171,49 @@ export class TelegramController {
     @Body() dto: OcrResultCallbackDto,
   ): Promise<OcrResultResponseDto> {
     return await this.telegramService.handleOcrResultCallback(jobId, dto);
+  }
+
+  @Post('ocr-jobs/:jobId/error')
+  @UseGuards(HmacSignatureGuard)
+  @ApiSecurity('HMAC-Signature')
+  @ApiOperation({
+    summary:
+      'OCR worker callback to report processing error and trigger retry/final failure',
+    description:
+      'Increments OCR attempt count, stores last error, republishes immediately when attempts remain, or marks FAILED and notifies user when max attempts reached.',
+  })
+  @ApiBody({ type: OcrErrorCallbackDto })
+  @ApiResponse({
+    status: 201,
+    description: 'OCR error processed (retry queued or job failed)',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        jobId: { type: 'string' },
+        status: { type: 'string' },
+        attempts: { type: 'number' },
+        maxAttempts: { type: 'number' },
+        retried: { type: 'boolean' },
+        message: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Invalid job state or payload' })
+  @ApiResponse({ status: 401, description: 'Missing/invalid HMAC headers' })
+  @ApiResponse({ status: 404, description: 'OCR job not found' })
+  async handleOcrErrorCallback(
+    @Param('jobId', new ParseUUIDPipe()) jobId: string,
+    @Body() dto: OcrErrorCallbackDto,
+  ): Promise<{
+    success: boolean;
+    jobId: string;
+    status: string;
+    attempts: number;
+    maxAttempts: number;
+    retried: boolean;
+    message: string;
+  }> {
+    return await this.telegramService.handleOcrErrorCallback(jobId, dto);
   }
 }

@@ -158,6 +158,7 @@ This project includes a fully-featured Telegram bot ([src/telegram/telegram.serv
   - Filenames: `{timestamp}_{telegramUserId}_{originalName}`
 - **Report Generation**: ReportImageService generates visual investment reports
 - **Webhook Mode**: Use `npm run telegram:setup` to configure webhook for production
+- **OCR Flow**: `TelegramService` only wires bot actions and delegates OCR handling to `TelegramOcrService`
 
 ## Documentation Generation
 

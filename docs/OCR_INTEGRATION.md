@@ -11,6 +11,10 @@ The flow includes:
 5. System saves transaction to correct table on confirm.
 6. Worker errors trigger immediate retry up to configured max attempts.
 
+Service responsibilities:
+- `TelegramService` registers bot actions and delegates OCR callbacks.
+- `TelegramOcrService` owns OCR result/error handling and user decision flows.
+
 ---
 
 ## Architecture

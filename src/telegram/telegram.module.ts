@@ -25,6 +25,8 @@ import { TelegramDepositService } from './services/telegram-deposit.service';
 import { TelegramCertificateService } from './services/telegram-certificate.service';
 import { TelegramPhotoService } from './services/telegram-photo.service';
 import { TelegramOcrService } from './services/telegram-ocr.service';
+import { RabbitMQPublisherService } from './services/rabbitmq-publisher.service';
+import { UpstashQstashService } from './services/upstash-qstash.service';
 
 @Module({
   imports: [
@@ -64,6 +66,8 @@ import { TelegramOcrService } from './services/telegram-ocr.service';
     // Utility services
     SupabaseStorageService,
     ReportImageService,
+    UpstashQstashService,
+    RabbitMQPublisherService,
   ],
 })
 export class TelegramModule {}

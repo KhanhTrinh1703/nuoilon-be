@@ -9,6 +9,7 @@ import {
 } from './supabase-storage.service';
 import { UploadLogRepository } from '../repositories/upload-log.repository';
 import { OcrJobRepository } from '../repositories/ocr-job.repository';
+import { formatTimestampForFileName } from '../utils/format-datetime.util';
 import { RabbitMQPublisherService } from './rabbitmq-publisher.service';
 
 /**
@@ -108,7 +109,7 @@ export class TelegramPhotoService {
       const mimeType =
         response.headers['content-type'] || 'application/octet-stream';
       const ext = extname(fileLink.pathname || '') || '.jpg';
-      const filename = `${Date.now()}_${userId}${ext}`;
+      const filename = `${formatTimestampForFileName(new Date())}_${userId}${ext}`;
 
       // upload to Supabase Storage
       const uploadResult: UploadImageResult =
@@ -155,7 +156,8 @@ export class TelegramPhotoService {
         userId,
       });
 
-      await ctx.reply('📸 Ảnh đã được tải lên. Đang xử lý OCR...');
+      await ctx.reply(`Ảnh đã được tải lên. Đang xử lý OCR...
+        \nTên file: ${filename}`);
       this.pendingUploads.delete(userId);
     } catch (err) {
       this.logger.error('Photo upload failed', err);

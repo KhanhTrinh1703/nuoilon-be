@@ -30,7 +30,18 @@ export class TelegramOcrService {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          /* Lines 208-220 omitted */
+          [
+            {
+              text: '✅ Xác nhận',
+              callback_data: `ocr_confirm_${jobId}_${confirmToken}`,
+            },
+          ],
+          [
+            {
+              text: '❌ Hủy bỏ',
+              callback_data: `ocr_reject_${jobId}_${confirmToken}`,
+            },
+          ],
         ],
       },
     });
@@ -46,34 +57,43 @@ export class TelegramOcrService {
     resultJson: Record<string, unknown>,
     warnings?: string[],
   ): string {
-    const transactionType = this.mapTransactionType(
-      this.toSafeString(resultJson.transactionType),
-    );
-    const amount = this.formatCurrency(resultJson.amount);
-    const date = this.formatDate(resultJson.transactionDate);
+    const rawType = this.toSafeString(resultJson.type).toLowerCase();
+    const typeLabel = this.mapTransactionType(rawType);
 
-    const certificates = this.toSafeNumber(resultJson.certificates);
-    const fundCode = this.toSafeString(resultJson.fundCode) || 'N/A';
-    const note = this.toSafeString(resultJson.note) || 'N/A';
+    const confidence = this.toSafeNumber(resultJson.confidence);
+    const confidenceText =
+      confidence !== null ? `${confidence.toLocaleString('vi-VN')}` : 'N/A';
 
-    const lines: string[] = [
-      '🧾 *Kết quả OCR*',
-      '',
-      `📋 *Loại:* ${transactionType}`,
-      `💰 *Số tiền:* ${amount}`,
-      `📅 *Ngày:* ${date}`,
-    ];
+    const lines: string[] = ['🧾 *Kết quả OCR*', ''];
 
-    if (certificates !== null) {
-      lines.push(`🎫 *Số CCQ:* ${certificates.toLocaleString('vi-VN')}`);
-    }
+    if (rawType === 'deposit') {
+      const amount = this.formatCurrency(resultJson.amount);
+      const currency = this.toSafeString(resultJson.currency) || 'N/A';
 
-    if (fundCode !== 'N/A') {
-      lines.push(`🏦 *Mã quỹ:* ${fundCode}`);
-    }
+      lines.push(`📋 *Loại:* ${typeLabel}`);
+      lines.push(`💰 *Số tiền:* ${amount}`);
+      lines.push(`💱 *Tiền tệ:* ${currency}`);
+      lines.push(`🎯 *Độ tin cậy:* ${confidenceText}`);
+    } else if (rawType === 'certificate') {
+      const matchedPrice = this.toSafeNumber(resultJson.matched_price);
+      const matchedQuantity = this.toSafeNumber(resultJson.matched_quantity);
 
-    if (note !== 'N/A') {
-      lines.push(`📝 *Ghi chú:* ${note}`);
+      lines.push(`📋 *Loại:* ${typeLabel}`);
+      lines.push(
+        `💵 *Giá khớp:* ${
+          matchedPrice !== null ? matchedPrice.toLocaleString('vi-VN') : 'N/A'
+        }`,
+      );
+      lines.push(
+        `🎫 *SL khớp:* ${
+          matchedQuantity !== null
+            ? matchedQuantity.toLocaleString('vi-VN')
+            : 'N/A'
+        }`,
+      );
+      lines.push(`🎯 *Độ tin cậy:* ${confidenceText}`);
+    } else {
+      lines.push('📋 *Loại:* Không xác định');
     }
 
     if (warnings && warnings.length > 0) {
@@ -92,10 +112,10 @@ export class TelegramOcrService {
 
   resolveTransactionType(
     resultJson: Record<string, unknown>,
-  ): 'DEPOSIT' | 'CERTIFICATE' {
-    const raw = this.toSafeString(resultJson.transactionType).toUpperCase();
+  ): 'deposit' | 'certificate' {
+    const raw = this.toSafeString(resultJson.transactionType).toLowerCase();
 
-    if (raw === 'DEPOSIT' || raw === 'CERTIFICATE') {
+    if (raw === 'deposit' || raw === 'certificate') {
       return raw;
     }
 
@@ -177,11 +197,11 @@ export class TelegramOcrService {
   }
 
   private mapTransactionType(transactionType: string): string {
-    if (transactionType === 'DEPOSIT') {
+    if (transactionType === 'deposit') {
       return 'Gửi tiền';
     }
 
-    if (transactionType === 'CERTIFICATE') {
+    if (transactionType === 'certificate') {
       return 'Mua chứng chỉ quỹ';
     }
 

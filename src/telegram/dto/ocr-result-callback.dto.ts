@@ -12,7 +12,7 @@ export class OcrResultCallbackDto {
     description:
       'Parsed OCR result JSON returned by OCR worker. This is stored as-is for confirmation and later transaction insertion.',
     example: {
-      transactionType: 'DEPOSIT',
+      transactionType: 'deposit',
       amount: 1000000,
       transactionDate: '2026-01-15',
       note: 'Nap tien tu OCR',

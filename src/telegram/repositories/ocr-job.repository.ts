@@ -89,14 +89,12 @@ export class OcrJobRepository {
     id: string,
     input: MarkNeedConfirmInput,
   ): Promise<OcrJob | null> {
-    await this.repository.update(
-      { id },
-      {
-        status: OcrJobStatus.NEED_CONFIRM,
-        /* Lines 125-129 omitted */
-        confirmToken: input.confirmToken,
-      },
-    );
+    await this.repository.save({
+      id,
+      status: OcrJobStatus.NEED_CONFIRM,
+      confirmToken: input.confirmToken,
+      ocrResultJson: input.resultJson,
+    });
 
     return this.findById(id);
   }

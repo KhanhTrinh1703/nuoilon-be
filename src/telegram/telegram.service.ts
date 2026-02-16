@@ -26,10 +26,9 @@ import { TelegramDepositService } from './services/telegram-deposit.service';
 import { TelegramCertificateService } from './services/telegram-certificate.service';
 import { TelegramPhotoService } from './services/telegram-photo.service';
 import { TelegramOcrService } from './services/telegram-ocr.service';
-import { SupabaseStorageService } from './services/supabase-storage.service';
-import { RabbitMQPublisherService } from './services/rabbitmq-publisher.service';
-import { GetSignedUrlDto } from './dto/get-signed-url.dto';
-import { SignedUrlResponseDto } from './dto/signed-url-response.dto';
+import { PublishOcrJobDto } from './dto/publish-ocr-job-dto';
+import { TelegramStartOcrService } from './services/telegram-start-ocr.service';
+import { UpstashQstashService } from './services/upstash-qstash.service';
 
 interface OcrCallbackData {
   action: 'confirm' | 'reject';
@@ -62,8 +61,8 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly depositTransactionRepository: DepositTransactionRepository,
     private readonly certificateTransactionRepository: CertificateTransactionRepository,
     private readonly telegramOcrService: TelegramOcrService,
-    private readonly supabaseStorageService: SupabaseStorageService,
-    private readonly rabbitmqPublisherService: RabbitMQPublisherService,
+    private readonly telegramStartOcrService: TelegramStartOcrService,
+    private readonly upstashQstashService: UpstashQstashService,
   ) {
     this.botToken = this.configService.get<string>('telegram.botToken') ?? '';
     this.webhookUrl =
@@ -478,7 +477,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
 
       // Republish immediately for retry
       try {
-        await this.rabbitmqPublisherService.publishOcrJob({
+        await this.upstashQstashService.publishOcrJob({
           jobId: withError.id,
           idempotencyKey: withError.tgFileUniqueId,
           chatId: Number(withError.tgChatId),
@@ -586,7 +585,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       const transactionSourceId = `ocr_${job.id}`;
       let transactionRecordId: string;
 
-      if (transactionType === 'DEPOSIT') {
+      if (transactionType === 'deposit') {
         const parsed = this.telegramOcrService.parseDepositResult(resultJson);
 
         const saved = await this.depositTransactionRepository.upsertFromOcr({
@@ -764,29 +763,8 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     return this.photoService.uploadImageViaRest(file, userId, description);
   }
 
-  /**
-   * Worker endpoint helper: resolve OCR job by idempotencyKey and return signed URL.
-   */
-  async getOcrJobSignedUrl(
-    dto: GetSignedUrlDto,
-  ): Promise<SignedUrlResponseDto> {
-    const job = await this.ocrJobRepository.findByIdempotencyKey(
-      dto.idempotencyKey,
-    );
-
-    if (!job) {
-      throw new NotFoundException('OCR job not found');
-    }
-
-    const signed = await this.supabaseStorageService.createSignedUrl(
-      job.storageBucket,
-      job.storagePath,
-    );
-
-    return {
-      signedUrl: signed.signedUrl,
-      expiresAt: signed.expiresAt,
-    };
+  async startOcrJob(payload: PublishOcrJobDto): Promise<void> {
+    return this.telegramStartOcrService.startOcrJob(payload);
   }
 
   /**

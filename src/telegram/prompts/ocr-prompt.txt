@@ -1,0 +1,37 @@
+Clarify this image to banking transaction or fund transaction screenshot, then read content of image.
+
+If image is banking transaction, let's extract the primary banking transaction amount from this image.
+Rules:
+- Return JSON only.
+- Use this exact JSON shape:
+  {
+    "type": "deposit",
+    "amount": number,
+    "currency": "string|null",
+    "confidence": number
+  }
+- If amount contains "," or ".", remove it and return number value
+- If amount is unclear, set amount to "" and confidence to 0.
+- Do not include markdown code fences.
+
+
+If image is Vietnamese fund transaction screenshot, let's find the row containing the word "Khớp".
+Extract:
+- matched_price (number)
+- matched_quantity (number)
+Rules:
+- Return JSON only.
+- Use this exact JSON shape:
+  {
+    "type": "certificate",
+    "matched_price": number,
+    "matched_quantity": number,
+    "confidence": number,
+  }
+- If a field is not visible, use 0.
+- Do not include markdown code fences.
+
+If you cannot clarify, let return JSON only following shape:
+{
+  "type": "undefined"
+}

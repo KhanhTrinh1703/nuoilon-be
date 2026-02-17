@@ -1,19 +1,34 @@
-export type GeminiOcrResponseDto = DepositDto | CertificateDto | UndefinedDto;
+import { z } from 'zod';
 
-export interface DepositDto {
-  type: 'deposit';
-  amount: string;
-  currency: string | null;
-  confidence: number;
-}
+// Zod Schemas
+export const DepositSchema = z.object({
+  type: z.literal('deposit'),
+  amount: z.union([z.string(), z.number()]).transform(String),
+  currency: z
+    .union([z.string(), z.number(), z.null()])
+    .transform((val) => (val === null ? null : String(val))),
+  confidence: z.number().default(0),
+});
 
-export interface CertificateDto {
-  type: 'certificate';
-  matched_price: number;
-  matched_quantity: number;
-  confidence: number;
-}
+export const CertificateSchema = z.object({
+  type: z.literal('certificate'),
+  matched_price: z.number().default(0),
+  matched_quantity: z.number().default(0),
+  confidence: z.number().default(0),
+});
 
-export interface UndefinedDto {
-  type: 'undefined';
-}
+export const UndefinedSchema = z.object({
+  type: z.literal('undefined'),
+});
+
+export const GeminiOcrResponseSchema = z.discriminatedUnion('type', [
+  DepositSchema,
+  CertificateSchema,
+  UndefinedSchema,
+]);
+
+// TypeScript Types (inferred from schemas)
+export type DepositDto = z.infer<typeof DepositSchema>;
+export type CertificateDto = z.infer<typeof CertificateSchema>;
+export type UndefinedDto = z.infer<typeof UndefinedSchema>;
+export type GeminiOcrResponseDto = z.infer<typeof GeminiOcrResponseSchema>;

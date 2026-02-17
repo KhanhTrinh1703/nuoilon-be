@@ -3,7 +3,10 @@ import { GoogleGenAI, GenerateContentResponse, Part } from '@google/genai';
 import { ConfigService } from '@nestjs/config';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { GeminiOcrResponseDto } from './dto/gemini-ocr-response.dto';
+import {
+  GeminiOcrResponseDto,
+  GeminiOcrResponseSchema,
+} from './dto/gemini-ocr-response.dto';
 import axios from 'axios';
 import { fileTypeFromBuffer } from 'file-type';
 import { randomInt } from 'crypto';
@@ -166,68 +169,17 @@ export class GeminiService {
       }
 
       const parsed = this.extractJson(textContent);
-      const parsedRec = parsed;
-      const typeVal = parsedRec['type'];
-      const type = typeof typeVal === 'string' ? typeVal : '';
+      const result = GeminiOcrResponseSchema.safeParse(parsed);
 
-      if (type === 'deposit') {
-        const amountVal = parsedRec['amount'];
-        let amount = '';
-        if (typeof amountVal === 'string') {
-          amount = amountVal;
-        } else if (typeof amountVal === 'number') {
-          amount = String(amountVal);
-        }
-
-        const currencyRaw = parsedRec['currency'];
-        let currency: string | null = null;
-        if (currencyRaw === null) {
-          currency = null;
-        } else if (typeof currencyRaw === 'string') {
-          currency = currencyRaw;
-        } else if (typeof currencyRaw === 'number') {
-          currency = String(currencyRaw);
-        }
-
-        const confidenceVal = parsedRec['confidence'];
-        let confidence = 0;
-        if (typeof confidenceVal === 'number') {
-          confidence = confidenceVal;
-        } else {
-          confidence = Number(confidenceVal ?? 0);
-        }
-
-        return {
-          type: 'deposit',
-          amount,
-          currency,
-          confidence: Number.isNaN(confidence) ? 0 : confidence,
-        };
+      if (!result.success) {
+        this.logger.warn(
+          'Failed to validate Gemini OCR response',
+          result.error.issues,
+        );
+        return { type: 'undefined' };
       }
 
-      if (type === 'certificate') {
-        const mpVal = parsedRec['matched_price'];
-        const mqVal = parsedRec['matched_quantity'];
-        const confVal = parsedRec['confidence'];
-
-        const matched_price =
-          typeof mpVal === 'number' ? mpVal : Number(mpVal ?? 0);
-        const matched_quantity =
-          typeof mqVal === 'number' ? mqVal : Number(mqVal ?? 0);
-        const confidence =
-          typeof confVal === 'number' ? confVal : Number(confVal ?? 0);
-
-        return {
-          type: 'certificate',
-          matched_price: Number.isNaN(matched_price) ? 0 : matched_price,
-          matched_quantity: Number.isNaN(matched_quantity)
-            ? 0
-            : matched_quantity,
-          confidence: Number.isNaN(confidence) ? 0 : confidence,
-        };
-      }
-
-      return { type: 'undefined' };
+      return result.data;
     } catch (error) {
       this.logger.error('Error parsing Gemini OCR response', error);
       return { type: 'undefined' };

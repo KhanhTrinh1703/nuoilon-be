@@ -1,67 +1,29 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
-
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Nuoilon Backend
+# Nuoilon Backend
 
 ## Overview
-Nuoilon is a multi-client NestJS 11 backend that tracks fund transactions and NAV, exposes client-specific APIs (Web, Telegram, Google AppScripts), and now streams Telegram photos directly to Supabase Storage.
+Nuoilon is a multi-client NestJS 11 backend for fund transaction tracking, reporting, Telegram bot, and OCR-assisted transaction extraction.
 
 ## Features
 - Multi-client modules with isolated Swagger documentation for each surface.
-- Telegram bot commands `/hi`, `/reports`, `/upload` with localized responses.
-- `/upload` streams Telegram images to Supabase Storage, renames them to `{timestamp}_{telegramUserId}_{originalName}`, validates JPEG/PNG/GIF/WebP files up to 25MB, and enforces 20 uploads per user per day.
-  Infrastructure services (AI, storage, and messaging) are centralized under `src/common/services/` for cross-module reuse.
-- File validation guarantees only JPEG/PNG/GIF/WebP files under 25MB reach Supabase Storage, and the public REST `/telegram/upload-image` endpoint shares the exact same rules.
-- Repository-driven TypeORM data access writing to PostgreSQL/NeonDB.
-
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
-
-## Nuoilon Backend
-
-## Overview
-Nuoilon is a multi-client NestJS 11 backend for fund transaction tracking, reporting, Telegram automation, and OCR-assisted transaction extraction.
-
-## Features
-- Multi-client modules with isolated Swagger documentation for each surface.
+- Google Apps Script integration for bidirectional sync between Google Spreadsheets and PostgreSQL database with HMAC-authenticated endpoints.
 - Telegram bot commands `/hi`, `/reports`, `/upload`, `/input` with Vietnamese responses.
-- OCR pipeline via RabbitMQ + Python worker for Telegram image uploads.
-- Inline Telegram confirmation/rejection for OCR results before saving to DB.
+- Asynchronous OCR pipeline using Upstash QStash for job queuing and Google Gemini AI for processing.
+- AI-powered document extraction from Vietnamese financial documents using Gemini API.
+- Supabase Storage integration for secure image upload and management with signed URLs.
 - Repository-driven TypeORM data access with PostgreSQL/NeonDB.
 - Static OpenAPI export under `docs/` for sharing API references.
 - Configurable dual database mode (`DATABASE_URL` or local DB vars).
 
 ## Tech Stack
-- Node.js 20+, TypeScript 5.7
-- NestJS 11, Telegraf 4.16
-- TypeORM 0.3 + PostgreSQL/Neon
-- RabbitMQ (`amqplib`) for OCR job queue
-- class-validator/class-transformer, Swagger, ESLint
+- **Backend**: Node.js 20+, TypeScript 5.7, NestJS 11
+- **Telegram Bot**: Telegraf 4.16
+- **Database**: TypeORM 0.3 + PostgreSQL/NeonDB
+- **Message Queue**: Upstash QStash for serverless HTTP-based job delivery
+- **AI/OCR**: Google Gemini API for intelligent document extraction
+- **Storage**: Supabase Storage for secure image hosting with signed URLs
+- **Validation**: class-validator, class-transformer
+- **API Docs**: Swagger/OpenAPI
+- **Code Quality**: ESLint, Prettier
 
 ## Getting Started
 1. Install dependencies:
@@ -76,7 +38,7 @@ npm install
 cp .env.example .env
 ```
 
-3. Configure DB + Telegram + Supabase + RabbitMQ in `.env`.
+3. Configure DB + Telegram + Supabase + QStash + Gemini in `.env`.
 
 4. Run migrations:
 
@@ -94,64 +56,70 @@ npm run start:dev
 
 ```dotenv
 PORT=3000
+SERVER_URL=http://localhost:3000
+
+# Environment (development | production | test)
 NODE_ENV=development
+
+# Application Mode (web | schedule)
+# web: Full API server with all modules (default)
+# schedule: Only database and scheduled tasks, no HTTP endpoints
 APP_MODE=web
 
-# Local DB (omit when DATABASE_URL is set)
+# ========================================
+# Database Configuration - Dual Mode
+# ========================================
+# Choose ONE of the following configurations:
+
+# Option 1: Local Development (PostgreSQL)
+# Use these individual parameters for local development
+# SSL is NOT required for local connections
+DB_TYPE=postgres
 DB_HOST=localhost
 DB_PORT=5432
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-DB_NAME=nuoilon
+DB_USERNAME=username
+DB_PASSWORD=password
+DB_NAME=dbname
 DB_SYNCHRONIZE=false
 DB_LOGGING=true
 DB_MIGRATIONS_RUN=false
 
-# Cloud DB (optional alternative)
-# DATABASE_URL=postgresql://.../dbname?sslmode=require
+# Option 2: Cloud Deployment (NeonDB)
+# Use DATABASE_URL for cloud environments (GitHub Actions, Vercel)
+# When DATABASE_URL is set, it takes priority over individual parameters
+# SSL is automatically enabled for DATABASE_URL connections
+# DATABASE_URL=postgresql://username:password@ep-xxx-xxx.neon.tech/dbname?sslmode=require
 
-# Security
-ACTIVE_SECRET=replace-me
+# Security Configuration
+ACTIVE_SECRET=your-secret-key-here-change-in-production
 
-# Telegram
-TELEGRAM_BOT_TOKEN=bot-token-from-botfather
-TELEGRAM_WEBHOOK_URL=https://your-domain.com/api/v1/telegram/webhook
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN=your-bot-token-from-botfather
+TELEGRAM_WEBHOOK_URL=https://your-domain.com/telegram/webhook
+# Optional: User whitelist for /input command (comma-separated user IDs, empty = allow all)
+# TELEGRAM_ALLOWED_USER_IDS=123456789,987654321
 
-# Supabase
+# Supabase (Telegram /upload)
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 SUPABASE_STORAGE_BUCKET=telegram-uploads
 SUPABASE_UPLOAD_FOLDER=images
 
-# RabbitMQ
-RABBITMQ_URL=amqp://guest:guest@localhost:5672
-RABBITMQ_EXCHANGE=direct
-RABBITMQ_QUEUE=ocr-ocr_jobs
-
 # OCR
 OCR_MAX_ATTEMPTS=2
+
+# QSTASH
+QSTASH_URL=url_here
+QSTASH_TOKEN=token_here
+QSTASH_CURRENT_SIGNING_KEY=current_sig_key
+QSTASH_NEXT_SIGNING_KEY=next_sig_key
+
+# Gemini
+GEMINI_API_KEY=your-gemini-api-key-here
+GEMINI_MODELS=gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3-flash-preview
+GEMINI_TEMPERATURE=0.0
+GEMINI_MAX_OUTPUT_TOKENS=1024
 ```
-
-## OCR Integration Flow
-1. User uploads image from Telegram `/upload`.
-2. Backend saves image to Supabase and creates `ocr_jobs` record.
-3. Backend publishes job to RabbitMQ queue `ocr-ocr_jobs`.
-4. Python worker requests signed URL and processes OCR.
-5. Worker posts OCR result to `/api/v1/telegram/ocr-jobs/:jobId/result`.
-6. Backend sends Vietnamese review message with inline buttons.
-7. User confirms/rejects:
-   - Confirm -> save to `deposit_transactions` or `certificate_transactions`.
-   - Reject -> mark OCR job as rejected.
-8. Worker error callback retries immediately up to `OCR_MAX_ATTEMPTS`.
-
-## OCR Worker Endpoints (HMAC-protected)
-- `POST /api/v1/telegram/ocr-jobs/signed-url`
-- `POST /api/v1/telegram/ocr-jobs/:jobId/result`
-- `POST /api/v1/telegram/ocr-jobs/:jobId/error`
-
-Headers:
-- `X-Timestamp`
-- `X-Signature`
 
 ## Documentation
 - Main docs index: `docs/index.html`
@@ -180,16 +148,13 @@ npm run typecheck
 npm run lint
 npm run docs:generate
 npm run docs:serve
-npm run telegram:setup
 ```
 
-## Telegram Notes
-- `/upload` validates JPEG/PNG/GIF/WebP under 25MB and enforces daily per-user limits.
-- OCR user-facing messages are in Vietnamese.
-- Confirmation callback buttons are token-protected to prevent replay misuse.
-
 ## Troubleshooting
-- Webhook not receiving updates: verify `TELEGRAM_WEBHOOK_URL` is HTTPS + reachable.
-- HMAC 401 errors: verify `ACTIVE_SECRET` and canonical signature payload.
-- OCR retries not published: verify RabbitMQ env vars + broker connectivity.
-- Docs generation fails: ensure DB is reachable because app context is fully bootstrapped.
+- **Webhook not receiving updates**: Verify `TELEGRAM_WEBHOOK_URL` is HTTPS and publicly reachable.
+- **HMAC 401 errors**: Verify `ACTIVE_SECRET` matches between backend and worker, check timestamp is within 5-minute window.
+- **QStash signature verification fails**: Verify `QSTASH_CURRENT_SIGNING_KEY` and `QSTASH_NEXT_SIGNING_KEY` are correctly set.
+- **OCR jobs not being processed**: Check `OCR_WORKER_ENDPOINT` is reachable and `QSTASH_TOKEN` is valid.
+- **Gemini API errors**: Verify `GEMINI_API_KEY` is valid and quota is not exceeded.
+- **Supabase upload fails**: Check `SUPABASE_SERVICE_ROLE_KEY` permissions and bucket exists.
+- **Docs generation fails**: Ensure DB is reachable because app context is fully bootstrapped.

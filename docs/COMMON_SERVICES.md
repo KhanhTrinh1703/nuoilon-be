@@ -24,10 +24,6 @@ Provided Services
   - Purpose: Send signed HTTP callback messages via Upstash QStash.
   - Requires `QSTASH_SIGNING_KEY` / appropriate env configuration used by the service.
 
-- Messaging (AMQP): `src/common/services/messaging/rabbitmq-publisher.service.ts`
-  - Purpose: Publish events to RabbitMQ exchanges/queues.
-  - Requires RabbitMQ connection env vars (e.g., `RABBITMQ_URL`).
-
 Usage
 -----
 

@@ -294,7 +294,6 @@ This repository centralizes shared infrastructure services under `src/common/ser
   - `src/common/services/ai/gemini.service.ts` — AI/OCR and prompt templates
   - `src/common/services/storage/supabase-storage.service.ts` — Supabase upload + signed URLs
   - `src/common/services/messaging/upstash-qstash.service.ts` — QStash HTTP publisher
-  - `src/common/services/messaging/rabbitmq-publisher.service.ts` — RabbitMQ publisher
 - **Telegram wrappers:** keep thin Telegram-specific adapters in `src/telegram/services/` (e.g. `telegram-qstash.service.ts`).
 
 When adding infra that multiple clients will use, add it to `src/common/services`, register it in `CommonServicesModule`, and update docs in `docs/`.

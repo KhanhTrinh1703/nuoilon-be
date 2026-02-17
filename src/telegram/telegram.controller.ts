@@ -230,7 +230,7 @@ export class TelegramController {
   })
   async testQstash(): Promise<void> {
     await this.telegramQstashService.sendMessage(
-      '/api/v1/report/test-listen-qstash',
+      '/api/v1/telegram/test-listen-qstash',
       {
         message: 'Hello, QStash!',
       },
@@ -239,18 +239,18 @@ export class TelegramController {
 
   @Post('test-listen-qstash')
   @UseGuards(DisableInProductionGuard)
+  @UseGuards(HmacSignatureGuard)
+  @ApiSecurity('HMAC-Signature')
   @ApiOperation({
     summary: 'Test QStash message listening',
     description:
       'Endpoint for testing QStash message listening. Not available in production.',
   })
-  async testListenQstash(@Body() body: { message: string }): Promise<void> {
+  testListenQstash(@Body() body: { message: string }): void {
     // Implement your QStash listening test logic here
     this.logger.log(
       `Received message from QStash test endpoint: ${body.message}`,
     );
-    const res = await this.geminiOcrService.testPerformOcr();
-    this.logger.log(`Gemini OCR test result: ${JSON.stringify(res)}`);
   }
 
   @Get('test-gemini-ocr')

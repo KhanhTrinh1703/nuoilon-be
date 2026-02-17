@@ -42,15 +42,15 @@ export class UpstashQstashService {
     this.logger.debug(`Sending message to QStash: ${url} with payload`);
 
     try {
-      await this.client.publish({
-        destination: url,
+      await this.client.publishJSON({
+        url: url,
         headers: {
           'Content-Type': 'application/json',
           'X-Timestamp': timestamp,
           'X-Signature': signature,
           ...(options?.headers ?? {}),
         },
-        body,
+        body: payload,
         delay: options?.delay ?? 0,
         retry: options?.retry ?? 0,
       });

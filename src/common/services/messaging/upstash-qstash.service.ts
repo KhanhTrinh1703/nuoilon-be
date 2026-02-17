@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Client } from '@upstash/qstash';
 import { ConfigService } from '@nestjs/config';
-import * as crypto from 'crypto';
 import { QstashSendOptions } from './dto/qstash-message.dto';
 
 @Injectable()
@@ -35,10 +34,6 @@ export class UpstashQstashService {
     }
 
     const url = `${this.serverEndpoint}${path}`;
-    const timestamp = Date.now().toString();
-    const body = JSON.stringify(payload);
-    const signature = this.generateSignature(path, timestamp, body);
-
     this.logger.debug(`Sending message to QStash: ${url} with payload`);
 
     try {
@@ -46,8 +41,6 @@ export class UpstashQstashService {
         url: url,
         headers: {
           'Content-Type': 'application/json',
-          'X-Timestamp': timestamp,
-          'X-Signature': signature,
           ...(options?.headers ?? {}),
         },
         body: payload,
@@ -60,33 +53,5 @@ export class UpstashQstashService {
       this.logger.error('Failed to publish message to QStash', error as Error);
       throw error;
     }
-  }
-
-  private generateSignature(
-    path: string,
-    timestamp: string,
-    body: string,
-  ): string {
-    const secret = this.configService.get<string>('security.activeSecret');
-    if (!secret) {
-      throw new Error('ACTIVE_SECRET not configured');
-    }
-
-    const stringToSign = this.buildStringToSign(path, timestamp, body);
-    return this.computeHmacSignature(secret, stringToSign);
-  }
-
-  private buildStringToSign(
-    path: string,
-    timestamp: string,
-    body: string,
-  ): string {
-    const method = 'POST';
-    const query = '';
-    return [method, path, query, timestamp, body].join('\n');
-  }
-
-  private computeHmacSignature(secret: string, data: string): string {
-    return crypto.createHmac('sha256', secret).update(data).digest('hex');
   }
 }

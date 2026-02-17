@@ -27,6 +27,7 @@ import { TelegramService } from './telegram.service';
 // import { TelegramEnabledGuard } from '../common/guards/telegram-enabled.guard';
 import { DisableInProductionGuard } from '../common/guards/disable-in-production.guard';
 import { HmacSignatureGuard } from '../common/guards/hmac-signature.guard';
+import { UpstashSignatureGuard } from 'src/common/guards/upstash-signature.guard';
 import { UploadImageDto } from './dto/upload-image.dto';
 import { OcrResultCallbackDto } from './dto/ocr-result-callback.dto';
 import { OcrResultResponseDto } from './dto/ocr-result-response.dto';
@@ -239,8 +240,8 @@ export class TelegramController {
 
   @Post('test-listen-qstash')
   @UseGuards(DisableInProductionGuard)
-  @UseGuards(HmacSignatureGuard)
-  @ApiSecurity('HMAC-Signature')
+  @UseGuards(UpstashSignatureGuard)
+  @ApiSecurity('Upstash-Signature')
   @ApiOperation({
     summary: 'Test QStash message listening',
     description:

@@ -10,7 +10,7 @@ import {
 import { UploadLogRepository } from '../repositories/upload-log.repository';
 import { OcrJobRepository } from '../repositories/ocr-job.repository';
 import { formatTimestampForFileName } from '../utils/format-datetime.util';
-import { RabbitMQPublisherService } from '../../common/services/messaging/rabbitmq-publisher.service';
+import { TelegramQstashService } from './telegram-qstash.service';
 
 /**
  * Service for handling photo uploads in Telegram bot
@@ -26,7 +26,7 @@ export class TelegramPhotoService {
     private readonly supabaseStorageService: SupabaseStorageService,
     private readonly uploadLogRepository: UploadLogRepository,
     private readonly ocrJobRepository: OcrJobRepository,
-    private readonly rabbitmqPublisherService: RabbitMQPublisherService,
+    private readonly telegramQstashService: TelegramQstashService,
   ) {}
 
   /**
@@ -148,8 +148,8 @@ export class TelegramPhotoService {
         maxAttempts: 2,
       });
 
-      // publish OCR job to RabbitMQ (worker will fetch signed URL via API)
-      await this.rabbitmqPublisherService.publishMessage({
+      // publish OCR job to Qstash
+      await this.telegramQstashService.publishOcrJob({
         jobId: job.id,
         idempotencyKey,
         chatId,

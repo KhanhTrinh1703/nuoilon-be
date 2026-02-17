@@ -24,7 +24,6 @@ import { TelegramDepositService } from './services/telegram-deposit.service';
 import { TelegramCertificateService } from './services/telegram-certificate.service';
 import { TelegramPhotoService } from './services/telegram-photo.service';
 import { TelegramOcrService } from './services/telegram-ocr.service';
-// local RabbitMQPublisherService moved to common services
 import { TelegramQstashService } from './services/telegram-qstash.service';
 import { TelegramStartOcrService } from './services/telegram-start-ocr.service';
 

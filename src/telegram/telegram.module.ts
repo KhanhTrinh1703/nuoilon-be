@@ -27,7 +27,7 @@ import { TelegramPhotoService } from './services/telegram-photo.service';
 import { TelegramOcrService } from './services/telegram-ocr.service';
 import { RabbitMQPublisherService } from './services/rabbitmq-publisher.service';
 import { UpstashQstashService } from './services/upstash-qstash.service';
-import { GeminiOcrService } from './services/gemini-ocr.service';
+import { GeminiService } from './services/gemini.service';
 import { TelegramStartOcrService } from './services/telegram-start-ocr.service';
 
 @Module({
@@ -69,7 +69,7 @@ import { TelegramStartOcrService } from './services/telegram-start-ocr.service';
     SupabaseStorageService,
     ReportImageService,
     UpstashQstashService,
-    GeminiOcrService,
+    GeminiService,
     TelegramStartOcrService,
     RabbitMQPublisherService,
   ],

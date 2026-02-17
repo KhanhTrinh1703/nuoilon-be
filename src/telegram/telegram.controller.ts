@@ -24,7 +24,7 @@ import {
   ApiSecurity,
 } from '@nestjs/swagger';
 import { TelegramService } from './telegram.service';
-import { TelegramEnabledGuard } from '../common/guards/telegram-enabled.guard';
+// import { TelegramEnabledGuard } from '../common/guards/telegram-enabled.guard';
 import { DisableInProductionGuard } from '../common/guards/disable-in-production.guard';
 import { HmacSignatureGuard } from '../common/guards/hmac-signature.guard';
 import { UploadImageDto } from './dto/upload-image.dto';
@@ -33,7 +33,7 @@ import { OcrResultResponseDto } from './dto/ocr-result-response.dto';
 import { OcrErrorCallbackDto } from './dto/ocr-error-callback.dto';
 import { PublishOcrJobDto } from './dto/publish-ocr-job-dto';
 import { UpstashQstashService } from './services/upstash-qstash.service';
-import { GeminiOcrService } from './services/gemini-ocr.service';
+import { GeminiService } from './services/gemini.service';
 import type { Update } from 'telegraf/types';
 import {
   IMAGE_FILE_ALLOWED_MIME_TYPES,
@@ -42,14 +42,14 @@ import {
 
 @ApiTags('telegram')
 @Controller({ path: 'telegram', version: '1' })
-@UseGuards(TelegramEnabledGuard)
+// @UseGuards(TelegramEnabledGuard)
 export class TelegramController {
   private readonly logger = new Logger(TelegramController.name);
 
   constructor(
     private readonly telegramService: TelegramService,
     private readonly upstashQstashService: UpstashQstashService,
-    private readonly geminiOcrService: GeminiOcrService,
+    private readonly geminiOcrService: GeminiService,
   ) {}
 
   @Post('webhook')
@@ -262,7 +262,7 @@ export class TelegramController {
   })
   async testGeminiOcr(): Promise<void> {
     // For testing purposes, you can load a sample image from disk or use a predefined buffer
-    const res = await this.geminiOcrService.testPerformOcr();
+    const res = await this.geminiOcrService.getCertificatePrice();
     this.logger.log(`Gemini OCR test result: ${JSON.stringify(res)}`);
   }
 }

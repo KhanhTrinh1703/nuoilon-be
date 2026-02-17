@@ -3,7 +3,7 @@ import axios from 'axios';
 import { fileTypeFromBuffer } from 'file-type';
 
 import { PublishOcrJobDto } from '../dto/publish-ocr-job-dto';
-import { GeminiOcrService } from './gemini-ocr.service';
+import { GeminiService } from './gemini.service';
 import { OcrJobRepository } from '../repositories/ocr-job.repository';
 import { SupabaseStorageService } from './supabase-storage.service';
 import { UpstashQstashService } from './upstash-qstash.service';
@@ -13,7 +13,7 @@ export class TelegramStartOcrService {
   private readonly logger = new Logger(TelegramStartOcrService.name);
 
   constructor(
-    private readonly geminiOcrService: GeminiOcrService,
+    private readonly geminiOcrService: GeminiService,
     private readonly ocrJobRepository: OcrJobRepository,
     private readonly supabaseStorageService: SupabaseStorageService,
     private readonly upstashQstashService: UpstashQstashService,

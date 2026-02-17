@@ -5,19 +5,19 @@ import { readFileSync } from 'fs';
 import { GeminiOcrResponseDto } from '../dto/gemini-result-dto';
 import axios from 'axios';
 import { fileTypeFromBuffer } from 'file-type';
+import { randomInt } from 'crypto';
 
 @Injectable()
-export class GeminiOcrService {
-  private readonly logger = new Logger(GeminiOcrService.name);
+export class GeminiService {
+  private readonly logger = new Logger(GeminiService.name);
   private genAIClient: GoogleGenAI | null = null;
-  private readonly model: string;
   private readonly ocrPromptTemplate: string | null;
   private readonly temperature: number;
   private readonly maxOutputTokens: number;
+  private readonly models: string[];
 
   constructor(private readonly configService: ConfigService) {
-    this.model =
-      this.configService.get<string>('gemini.model') || 'gemini-2.5-flash-lite';
+    this.models = this.configService.get<string[]>('gemini.models') || [];
     this.ocrPromptTemplate = this.loadOcrPromptTemplate();
     this.temperature =
       this.configService.get<number>('gemini.temperature') ?? 0.0;
@@ -36,7 +36,7 @@ export class GeminiOcrService {
       const prompt = this.ocrPromptTemplate ?? '';
 
       const response = await this.genAIClient!.models.generateContent({
-        model: this.model,
+        model: this.models[randomInt(0, this.models.length)],
         config: {
           temperature: this.temperature,
           maxOutputTokens: this.maxOutputTokens,
@@ -48,6 +48,34 @@ export class GeminiOcrService {
     } catch (error) {
       this.logger.error('Error performing OCR with Gemini', error);
       throw new Error('Gemini OCR service error');
+    }
+  }
+
+  async getCertificatePrice(): Promise<Record<string, unknown>> {
+    this.assertReady();
+    try {
+      const prompts = this.loadOcrPromptTemplate(
+        'src/telegram/prompts/price-prompt.txt',
+      );
+      const response = await this.genAIClient!.models.generateContent({
+        model: this.models[randomInt(0, this.models.length)],
+        contents: [{ text: prompts ?? '' }],
+        config: {
+          temperature: this.temperature,
+          maxOutputTokens: this.maxOutputTokens,
+          tools: [{ urlContext: {} }],
+        },
+      });
+      const textContent = response.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      const parsed = this.extractJson(textContent!) as unknown as Record<
+        string,
+        unknown
+      >;
+      return parsed;
+    } catch (error) {
+      this.logger.error('Error fetching Gemini model info', error);
+      throw new Error('Gemini API error');
     }
   }
 
@@ -83,9 +111,11 @@ export class GeminiOcrService {
     this.genAIClient = new GoogleGenAI({ apiKey });
   }
 
-  private loadOcrPromptTemplate(): string | null {
+  private loadOcrPromptTemplate(
+    filePath: string = 'src/telegram/prompts/ocr-prompt.txt',
+  ): string | null {
     try {
-      return readFileSync('src/telegram/prompts/ocr-prompt.txt', 'utf-8');
+      return readFileSync(filePath, 'utf-8');
     } catch (error) {
       this.logger.warn('Failed to load OCR prompt template', error);
       return null;

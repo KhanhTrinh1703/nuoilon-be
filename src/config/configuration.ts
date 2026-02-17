@@ -53,7 +53,9 @@ export default () => ({
   },
   gemini: {
     apiKey: process.env.GEMINI_API_KEY,
-    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite',
+    models: process.env.GEMINI_MODELS
+      ? process.env.GEMINI_MODELS.split(',').map((m) => m.trim())
+      : ['gemini-2.5-flash-lite'],
     temperature: parseFloat(process.env.GEMINI_TEMPERATURE ?? '0.0') || 0.0,
     maxOutputTokens:
       parseInt(process.env.GEMINI_MAX_OUTPUT_TOKENS ?? '1024', 10) || 1024,

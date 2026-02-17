@@ -127,8 +127,8 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     // === BASIC COMMANDS ===
 
     // /hi command
-    this.bot.command('hi', (ctx: Context) => {
-      this.commandsService.handleHiCommand(ctx);
+    this.bot.command('hi', async (ctx: Context) => {
+      await this.commandsService.handleHiCommand(ctx);
     });
 
     // /reports command

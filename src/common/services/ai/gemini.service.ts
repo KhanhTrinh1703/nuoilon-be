@@ -7,6 +7,10 @@ import { GeminiOcrResponseDto } from './dto/gemini-ocr-response.dto';
 import axios from 'axios';
 import { fileTypeFromBuffer } from 'file-type';
 import { randomInt } from 'crypto';
+import {
+  GreetingSchema,
+  GeminiGreetingResponseDto,
+} from './dto/gemini-greeting-response.dto';
 
 @Injectable()
 export class GeminiService {
@@ -75,6 +79,30 @@ export class GeminiService {
     } catch (error) {
       this.logger.error('Error fetching Gemini model info', error);
       throw new Error('Gemini API error');
+    }
+  }
+
+  async greet(): Promise<GeminiGreetingResponseDto> {
+    this.assertReady();
+    try {
+      const prompts = this.loadPromptTemplate('greeting-prompt.txt');
+      const response = await this.genAIClient!.models.generateContent({
+        model: this.models[randomInt(0, this.models.length)],
+        contents: [{ text: prompts ?? '' }],
+        config: {
+          temperature: this.temperature,
+          maxOutputTokens: this.maxOutputTokens,
+        },
+      });
+      const textContent =
+        response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const parsed = this.extractJson(textContent);
+      return GreetingSchema.parse(parsed);
+    } catch (error) {
+      this.logger.error('Error greeting Gemini', error);
+      return {
+        message: 'Chào mấy con gà, mấy con gà làm đếch gì biết về tài chính!',
+      };
     }
   }
 

@@ -25,7 +25,6 @@ import { TelegramCertificateService } from './services/telegram-certificate.serv
 import { TelegramPhotoService } from './services/telegram-photo.service';
 import { TelegramOcrService } from './services/telegram-ocr.service';
 import { TelegramQstashService } from './services/telegram-qstash.service';
-import { TelegramStartOcrService } from './services/telegram-start-ocr.service';
 
 @Module({
   imports: [
@@ -65,7 +64,6 @@ import { TelegramStartOcrService } from './services/telegram-start-ocr.service';
     // Utility services
     ReportImageService,
     TelegramQstashService,
-    TelegramStartOcrService,
   ],
 })
 export class TelegramModule {}

@@ -7,10 +7,15 @@ import {
 import { randomUUID } from 'crypto';
 import { format } from 'date-fns';
 import { Context, Telegraf } from 'telegraf';
+import axios from 'axios';
+import { fileTypeFromBuffer } from 'file-type';
 import { OcrJob, OcrJobStatus } from '../../database/entities/ocr-job.entity';
 import { OcrErrorCallbackDto } from '../dto/ocr-error-callback.dto';
 import { OcrResultCallbackDto } from '../dto/ocr-result-callback.dto';
 import { OcrResultResponseDto } from '../dto/ocr-result-response.dto';
+import { PublishOcrJobDto } from '../dto/publish-ocr-job-dto';
+import { GeminiService } from '../../common/services/ai/gemini.service';
+import { SupabaseStorageService } from '../../common/services/storage/supabase-storage.service';
 import { CertificateTransactionRepository } from '../repositories/certificate-transaction.repository';
 import { DepositTransactionRepository } from '../repositories/deposit-transaction.repository';
 import { OcrJobRepository } from '../repositories/ocr-job.repository';
@@ -31,7 +36,33 @@ export class TelegramOcrService {
     private readonly depositTransactionRepository: DepositTransactionRepository,
     private readonly certificateTransactionRepository: CertificateTransactionRepository,
     private readonly telegramQstashService: TelegramQstashService,
+    private readonly geminiOcrService: GeminiService,
+    private readonly supabaseStorageService: SupabaseStorageService,
   ) {}
+
+  /**
+   * Start OCR job by downloading image and processing with Gemini.
+   * @param payload OCR job payload containing jobId and idempotencyKey.
+   * @returns void
+   * @example
+   * await telegramOcrService.startOcrJob(payload);
+   */
+  async startOcrJob(payload: PublishOcrJobDto): Promise<void> {
+    this.logger.debug(
+      `Starting OCR job with payload: ${JSON.stringify(payload)}`,
+    );
+
+    const signedUrl = await this.getSignedUrlForImage(payload.idempotencyKey);
+    const { buffer, mimeType } =
+      await this.downloadImageFromSupabase(signedUrl);
+    const ocrResult = await this.geminiOcrService.performOcr(buffer, mimeType);
+
+    await this.telegramQstashService.publishOcrResult(payload.jobId, {
+      provider: 'gemini',
+      model: 'gemini-2.0-flash',
+      resultJson: ocrResult as unknown as Record<string, unknown>,
+    });
+  }
 
   /**
    * Handle OCR worker result callback, persist data, and request user confirmation.
@@ -655,5 +686,33 @@ export class TelegramOcrService {
     }
 
     return null;
+  }
+
+  private async getSignedUrlForImage(idempotencyKey: string): Promise<string> {
+    const job =
+      await this.ocrJobRepository.findByIdempotencyKey(idempotencyKey);
+
+    if (!job) {
+      throw new NotFoundException('OCR job not found');
+    }
+
+    const signed = await this.supabaseStorageService.createSignedUrl(
+      job.storageBucket,
+      job.storagePath,
+    );
+
+    return signed.signedUrl;
+  }
+
+  private async downloadImageFromSupabase(
+    signedUrl: string,
+  ): Promise<{ buffer: Buffer; mimeType: string }> {
+    const response = await axios.get(signedUrl, {
+      responseType: 'arraybuffer',
+    });
+    const buffer = Buffer.from(response.data as ArrayBufferLike);
+    const fileTypeResult = await fileTypeFromBuffer(buffer);
+    const mimeType = fileTypeResult?.mime ?? 'image/jpeg';
+    return { buffer, mimeType };
   }
 }

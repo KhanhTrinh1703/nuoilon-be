@@ -19,7 +19,6 @@ import { TelegramCertificateService } from './services/telegram-certificate.serv
 import { TelegramPhotoService } from './services/telegram-photo.service';
 import { TelegramOcrService } from './services/telegram-ocr.service';
 import { PublishOcrJobDto } from './dto/publish-ocr-job-dto';
-import { TelegramStartOcrService } from './services/telegram-start-ocr.service';
 
 /**
  * Main Telegram service that coordinates all bot functionality
@@ -43,7 +42,6 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly certificateService: TelegramCertificateService,
     private readonly photoService: TelegramPhotoService,
     private readonly telegramOcrService: TelegramOcrService,
-    private readonly telegramStartOcrService: TelegramStartOcrService,
   ) {
     this.botToken = this.configService.get<string>('telegram.botToken') ?? '';
     this.webhookUrl =
@@ -386,7 +384,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   }
 
   async startOcrJob(payload: PublishOcrJobDto): Promise<void> {
-    return this.telegramStartOcrService.startOcrJob(payload);
+    return this.telegramOcrService.startOcrJob(payload);
   }
 
   /**

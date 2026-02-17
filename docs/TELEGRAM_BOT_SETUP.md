@@ -107,6 +107,5 @@ curl -X POST https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook \
   - `ai/gemini.service.ts`
   - `storage/supabase-storage.service.ts`
   - `messaging/upstash-qstash.service.ts`
-  - `messaging/rabbitmq-publisher.service.ts`
 - Telegram-specific message publishing helpers are in `src/telegram/services/telegram-qstash.service.ts`.
 

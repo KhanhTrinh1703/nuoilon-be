@@ -26,21 +26,11 @@ export default () => ({
     webhookUrl: process.env.TELEGRAM_WEBHOOK_URL,
     allowedUserIds: process.env.TELEGRAM_ALLOWED_USER_IDS,
   },
-  firebase: {
-    serviceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    uploadFolder: process.env.FIREBASE_UPLOAD_FOLDER || 'telegram-uploads',
-  },
   supabase: {
     url: process.env.SUPABASE_URL,
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     storageBucket: process.env.SUPABASE_STORAGE_BUCKET,
     uploadFolder: process.env.SUPABASE_UPLOAD_FOLDER || 'images',
-  },
-  rabbitmq: {
-    url: process.env.RABBITMQ_URL,
-    exchange: process.env.RABBITMQ_EXCHANGE || 'direct',
-    queue: process.env.RABBITMQ_QUEUE || 'ocr-ocr_jobs',
   },
   ocr: {
     maxAttempts: parseInt(process.env.OCR_MAX_ATTEMPTS ?? '2', 10) || 2,

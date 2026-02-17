@@ -9,27 +9,15 @@ import { SupabaseClient, createClient } from '@supabase/supabase-js';
 import { extname } from 'path';
 import {
   IMAGE_FILE_ALLOWED_EXTENSIONS,
-  // IMAGE_FILE_ALLOWED_MIME_TYPES,
   IMAGE_FILE_MAX_SIZE_BYTES,
   IMAGE_FILE_SIZE_ERROR_MESSAGE,
   IMAGE_FILE_TYPE_ERROR_MESSAGE,
-} from '../../common/constants/file-upload.constants';
+} from '../../constants/file-upload.constants';
+import { UploadImageResult, UploadPayload } from './dto/upload-image.dto';
 
-interface UploadPayload {
-  buffer: Buffer;
-  filename: string;
-  mimeType: string;
-  fileSize: number;
-}
+export type { UploadImageResult, UploadPayload } from './dto/upload-image.dto';
 
-export interface UploadImageResult {
-  webUrl: string;
-  storageBucket: string;
-  storagePath: string;
-  contentType: string;
-}
-
-const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 @Injectable()
 export class SupabaseStorageService {
@@ -72,7 +60,6 @@ export class SupabaseStorageService {
       throw new Error('Storage not configured');
     }
 
-    // Validate payload before attempting upload
     this.validateFilePayload(payload);
 
     const storageBucket = this.bucketName;
@@ -91,32 +78,25 @@ export class SupabaseStorageService {
         throw error;
       }
 
+      // build signed web URL
+      const { data, error: signedErr } = await this.client.storage
+        .from(storageBucket)
+        .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+
+      if (signedErr) {
+        this.logger.warn(
+          `Failed to create signed URL for ${storageBucket}/${storagePath}: ${this.formatError(signedErr)}`,
+        );
+      }
+
+      const webUrl = data?.signedUrl ?? '';
+
       return {
-        webUrl: '',
+        webUrl,
         storageBucket,
         storagePath,
         contentType,
       };
-
-      // Did not use public URL to avoid exposing files publicly
-
-      // const publicUrl = this.getPublicUrl(storagePath);
-      // if (publicUrl) {
-      //   return {
-      //     webUrl: publicUrl,
-      //     storageBucket,
-      //     storagePath,
-      //     contentType,
-      //   };
-      // }
-
-      // const signed = await this.createSignedUrl(storageBucket, storagePath);
-      // return {
-      //   webUrl: signed.signedUrl,
-      //   storageBucket,
-      //   storagePath,
-      //   contentType,
-      // };
     } catch (err: unknown) {
       this.logger.error(
         `Failed to upload to Supabase Storage: ${this.formatError(err)}`,
@@ -181,26 +161,10 @@ export class SupabaseStorageService {
     }
   }
 
-  private getPublicUrl(path: string): string | null {
-    if (!this.client) return null;
-    const { data } = this.client.storage
-      .from(this.bucketName)
-      .getPublicUrl(path);
-    return data?.publicUrl ?? null;
-  }
-
   private validateFilePayload(payload: UploadPayload): void {
     if (payload.fileSize > IMAGE_FILE_MAX_SIZE_BYTES) {
       throw new BadRequestException(IMAGE_FILE_SIZE_ERROR_MESSAGE);
     }
-
-    // const normalizedMimeType = payload.mimeType?.toLowerCase() ?? '';
-    // if (
-    //   !normalizedMimeType ||
-    //   !IMAGE_FILE_ALLOWED_MIME_TYPES.includes(normalizedMimeType)
-    // ) {
-    //   throw new BadRequestException(IMAGE_FILE_TYPE_ERROR_MESSAGE);
-    // }
 
     const normalizedExtension = extname(payload.filename ?? '').toLowerCase();
     if (

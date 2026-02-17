@@ -33,7 +33,8 @@ Nuoilon is a multi-client NestJS 11 backend that tracks fund transactions and NA
 ## Features
 - Multi-client modules with isolated Swagger documentation for each surface.
 - Telegram bot commands `/hi`, `/reports`, `/upload` with localized responses.
-- `/upload` streams Telegram images to Firebase Storage, renames them to `{timestamp}_{telegramUserId}_{originalName}`, validates JPEG/PNG/GIF/WebP files up to 25MB, and enforces 20 uploads per user per day.
+- `/upload` streams Telegram images to Supabase Storage, renames them to `{timestamp}_{telegramUserId}_{originalName}`, validates JPEG/PNG/GIF/WebP files up to 25MB, and enforces 20 uploads per user per day.
+  Infrastructure services (AI, storage, and messaging) are centralized under `src/common/services/` for cross-module reuse.
 - File validation guarantees only JPEG/PNG/GIF/WebP files under 25MB reach Supabase Storage, and the public REST `/telegram/upload-image` endpoint shares the exact same rules.
 - Repository-driven TypeORM data access writing to PostgreSQL/NeonDB.
 

@@ -3,10 +3,10 @@ import axios from 'axios';
 import { fileTypeFromBuffer } from 'file-type';
 
 import { PublishOcrJobDto } from '../dto/publish-ocr-job-dto';
-import { GeminiService } from './gemini.service';
+import { GeminiService } from '../../common/services/ai/gemini.service';
 import { OcrJobRepository } from '../repositories/ocr-job.repository';
-import { SupabaseStorageService } from './supabase-storage.service';
-import { UpstashQstashService } from './upstash-qstash.service';
+import { SupabaseStorageService } from '../../common/services/storage/supabase-storage.service';
+import { TelegramQstashService } from './telegram-qstash.service';
 
 @Injectable()
 export class TelegramStartOcrService {
@@ -16,7 +16,7 @@ export class TelegramStartOcrService {
     private readonly geminiOcrService: GeminiService,
     private readonly ocrJobRepository: OcrJobRepository,
     private readonly supabaseStorageService: SupabaseStorageService,
-    private readonly upstashQstashService: UpstashQstashService,
+    private readonly telegramQstashService: TelegramQstashService,
   ) {}
 
   async startOcrJob(payload: PublishOcrJobDto): Promise<void> {
@@ -29,7 +29,7 @@ export class TelegramStartOcrService {
       await this.downloadImageFromSupabase(signedUrl);
     const ocrResult = await this.geminiOcrService.performOcr(buffer, mimeType);
 
-    await this.upstashQstashService.publishOcrResult(payload.jobId, {
+    await this.telegramQstashService.publishOcrResult(payload.jobId, {
       provider: 'gemini',
       model: 'gemini-2.0-flash',
       resultJson: ocrResult as unknown as Record<string, unknown>,

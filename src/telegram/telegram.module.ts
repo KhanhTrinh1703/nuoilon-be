@@ -17,7 +17,6 @@ import { UploadLogRepository } from './repositories/upload-log.repository';
 import { OcrJobRepository } from './repositories/ocr-job.repository';
 import { MonthlyInvestmentReport } from '../database/entities/monthly-investment-report.entity';
 import { MonthlyInvestmentReportRepository } from '../report/repositories/monthly-investment-report.repository';
-import { SupabaseStorageService } from './services/supabase-storage.service';
 import { ReportImageService } from './services/report-image.service';
 import { TelegramConversationService } from './services/telegram-conversation.service';
 import { TelegramCommandsService } from './services/telegram-commands.service';
@@ -25,9 +24,8 @@ import { TelegramDepositService } from './services/telegram-deposit.service';
 import { TelegramCertificateService } from './services/telegram-certificate.service';
 import { TelegramPhotoService } from './services/telegram-photo.service';
 import { TelegramOcrService } from './services/telegram-ocr.service';
-import { RabbitMQPublisherService } from './services/rabbitmq-publisher.service';
-import { UpstashQstashService } from './services/upstash-qstash.service';
-import { GeminiService } from './services/gemini.service';
+// local RabbitMQPublisherService moved to common services
+import { TelegramQstashService } from './services/telegram-qstash.service';
 import { TelegramStartOcrService } from './services/telegram-start-ocr.service';
 
 @Module({
@@ -66,12 +64,9 @@ import { TelegramStartOcrService } from './services/telegram-start-ocr.service';
     MonthlyInvestmentReportRepository,
 
     // Utility services
-    SupabaseStorageService,
     ReportImageService,
-    UpstashQstashService,
-    GeminiService,
+    TelegramQstashService,
     TelegramStartOcrService,
-    RabbitMQPublisherService,
   ],
 })
 export class TelegramModule {}

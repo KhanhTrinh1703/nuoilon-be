@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenAI, GenerateContentResponse, Part } from '@google/genai';
 import { ConfigService } from '@nestjs/config';
 import { readFileSync } from 'fs';
-import { GeminiOcrResponseDto } from '../dto/gemini-result-dto';
+import { join } from 'path';
+import { GeminiOcrResponseDto } from './dto/gemini-ocr-response.dto';
 import axios from 'axios';
 import { fileTypeFromBuffer } from 'file-type';
 import { randomInt } from 'crypto';
@@ -18,7 +19,7 @@ export class GeminiService {
 
   constructor(private readonly configService: ConfigService) {
     this.models = this.configService.get<string[]>('gemini.models') || [];
-    this.ocrPromptTemplate = this.loadOcrPromptTemplate();
+    this.ocrPromptTemplate = this.loadPromptTemplate('ocr-prompt.txt');
     this.temperature =
       this.configService.get<number>('gemini.temperature') ?? 0.0;
     this.maxOutputTokens =
@@ -54,9 +55,7 @@ export class GeminiService {
   async getCertificatePrice(): Promise<Record<string, unknown>> {
     this.assertReady();
     try {
-      const prompts = this.loadOcrPromptTemplate(
-        'src/telegram/prompts/price-prompt.txt',
-      );
+      const prompts = this.loadPromptTemplate('price-prompt.txt');
       const response = await this.genAIClient!.models.generateContent({
         model: this.models[randomInt(0, this.models.length)],
         contents: [{ text: prompts ?? '' }],
@@ -79,7 +78,6 @@ export class GeminiService {
     }
   }
 
-  // This method is for testing purposes only
   async testPerformOcr(): Promise<GeminiOcrResponseDto> {
     const response = await axios.get('your-test-image-url-here', {
       responseType: 'arraybuffer',
@@ -111,13 +109,12 @@ export class GeminiService {
     this.genAIClient = new GoogleGenAI({ apiKey });
   }
 
-  private loadOcrPromptTemplate(
-    filePath: string = 'src/telegram/prompts/ocr-prompt.txt',
-  ): string | null {
+  private loadPromptTemplate(fileName: string): string | null {
     try {
+      const filePath = join(__dirname, 'prompts', fileName);
       return readFileSync(filePath, 'utf-8');
     } catch (error) {
-      this.logger.warn('Failed to load OCR prompt template', error);
+      this.logger.warn('Failed to load prompt template', error);
       return null;
     }
   }
@@ -133,7 +130,6 @@ export class GeminiService {
     response: GenerateContentResponse,
   ): GeminiOcrResponseDto {
     try {
-      // Extract text content from Gemini response
       const textContent = response.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!textContent) {
@@ -141,27 +137,65 @@ export class GeminiService {
         return { type: 'undefined' };
       }
 
-      // Parse JSON from response text
-      const parsed = this.extractJson(
-        textContent,
-      ) as unknown as GeminiOcrResponseDto;
+      const parsed = this.extractJson(textContent);
+      const parsedRec = parsed;
+      const typeVal = parsedRec['type'];
+      const type = typeof typeVal === 'string' ? typeVal : '';
 
-      // Discriminate based on type field
-      if (parsed.type === 'deposit') {
+      if (type === 'deposit') {
+        const amountVal = parsedRec['amount'];
+        let amount = '';
+        if (typeof amountVal === 'string') {
+          amount = amountVal;
+        } else if (typeof amountVal === 'number') {
+          amount = String(amountVal);
+        }
+
+        const currencyRaw = parsedRec['currency'];
+        let currency: string | null = null;
+        if (currencyRaw === null) {
+          currency = null;
+        } else if (typeof currencyRaw === 'string') {
+          currency = currencyRaw;
+        } else if (typeof currencyRaw === 'number') {
+          currency = String(currencyRaw);
+        }
+
+        const confidenceVal = parsedRec['confidence'];
+        let confidence = 0;
+        if (typeof confidenceVal === 'number') {
+          confidence = confidenceVal;
+        } else {
+          confidence = Number(confidenceVal ?? 0);
+        }
+
         return {
           type: 'deposit',
-          amount: parsed.amount || '',
-          currency: parsed.currency || null,
-          confidence: Number(parsed.confidence) || 0,
+          amount,
+          currency,
+          confidence: Number.isNaN(confidence) ? 0 : confidence,
         };
       }
 
-      if (parsed.type === 'certificate') {
+      if (type === 'certificate') {
+        const mpVal = parsedRec['matched_price'];
+        const mqVal = parsedRec['matched_quantity'];
+        const confVal = parsedRec['confidence'];
+
+        const matched_price =
+          typeof mpVal === 'number' ? mpVal : Number(mpVal ?? 0);
+        const matched_quantity =
+          typeof mqVal === 'number' ? mqVal : Number(mqVal ?? 0);
+        const confidence =
+          typeof confVal === 'number' ? confVal : Number(confVal ?? 0);
+
         return {
           type: 'certificate',
-          matched_price: Number(parsed.matched_price) || 0,
-          matched_quantity: Number(parsed.matched_quantity) || 0,
-          confidence: Number(parsed.confidence) || 0,
+          matched_price: Number.isNaN(matched_price) ? 0 : matched_price,
+          matched_quantity: Number.isNaN(matched_quantity)
+            ? 0
+            : matched_quantity,
+          confidence: Number.isNaN(confidence) ? 0 : confidence,
         };
       }
 

@@ -14,7 +14,7 @@ import { OcrResultResponseDto } from '../dto/ocr-result-response.dto';
 import { CertificateTransactionRepository } from '../repositories/certificate-transaction.repository';
 import { DepositTransactionRepository } from '../repositories/deposit-transaction.repository';
 import { OcrJobRepository } from '../repositories/ocr-job.repository';
-import { UpstashQstashService } from './upstash-qstash.service';
+import { TelegramQstashService } from './telegram-qstash.service';
 
 interface OcrCallbackData {
   action: 'confirm' | 'reject';
@@ -30,7 +30,7 @@ export class TelegramOcrService {
     private readonly ocrJobRepository: OcrJobRepository,
     private readonly depositTransactionRepository: DepositTransactionRepository,
     private readonly certificateTransactionRepository: CertificateTransactionRepository,
-    private readonly upstashQstashService: UpstashQstashService,
+    private readonly telegramQstashService: TelegramQstashService,
   ) {}
 
   /**
@@ -167,7 +167,7 @@ export class TelegramOcrService {
 
       // Republish immediately for retry
       try {
-        await this.upstashQstashService.publishOcrJob({
+        await this.telegramQstashService.publishOcrJob({
           jobId: withError.id,
           idempotencyKey: withError.tgFileUniqueId,
           chatId: Number(withError.tgChatId),

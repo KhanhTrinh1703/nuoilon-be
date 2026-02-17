@@ -6,11 +6,11 @@ import { Context } from 'telegraf';
 import {
   SupabaseStorageService,
   UploadImageResult,
-} from './supabase-storage.service';
+} from '../../common/services/storage/supabase-storage.service';
 import { UploadLogRepository } from '../repositories/upload-log.repository';
 import { OcrJobRepository } from '../repositories/ocr-job.repository';
 import { formatTimestampForFileName } from '../utils/format-datetime.util';
-import { RabbitMQPublisherService } from './rabbitmq-publisher.service';
+import { RabbitMQPublisherService } from '../../common/services/messaging/rabbitmq-publisher.service';
 
 /**
  * Service for handling photo uploads in Telegram bot
@@ -149,7 +149,7 @@ export class TelegramPhotoService {
       });
 
       // publish OCR job to RabbitMQ (worker will fetch signed URL via API)
-      await this.rabbitmqPublisherService.publishOcrJob({
+      await this.rabbitmqPublisherService.publishMessage({
         jobId: job.id,
         idempotencyKey,
         chatId,

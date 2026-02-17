@@ -1,7 +1,3 @@
-/**
- * Discriminated union type for OCR responses
- * Handles 3 cases: banking deposit, fund certificate, or undefined
- */
 export type GeminiOcrResponseDto = DepositDto | CertificateDto | UndefinedDto;
 
 export interface DepositDto {

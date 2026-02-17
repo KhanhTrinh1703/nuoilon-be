@@ -32,8 +32,8 @@ import { OcrResultCallbackDto } from './dto/ocr-result-callback.dto';
 import { OcrResultResponseDto } from './dto/ocr-result-response.dto';
 import { OcrErrorCallbackDto } from './dto/ocr-error-callback.dto';
 import { PublishOcrJobDto } from './dto/publish-ocr-job-dto';
-import { UpstashQstashService } from './services/upstash-qstash.service';
-import { GeminiService } from './services/gemini.service';
+import { TelegramQstashService } from './services/telegram-qstash.service';
+import { GeminiService } from '../common/services/ai/gemini.service';
 import type { Update } from 'telegraf/types';
 import {
   IMAGE_FILE_ALLOWED_MIME_TYPES,
@@ -48,7 +48,7 @@ export class TelegramController {
 
   constructor(
     private readonly telegramService: TelegramService,
-    private readonly upstashQstashService: UpstashQstashService,
+    private readonly telegramQstashService: TelegramQstashService,
     private readonly geminiOcrService: GeminiService,
   ) {}
 
@@ -229,7 +229,7 @@ export class TelegramController {
       'Endpoint for testing QStash message publishing. Not available in production.',
   })
   async testQstash(): Promise<void> {
-    await this.upstashQstashService.sendMessage(
+    await this.telegramQstashService.sendMessage(
       '/api/v1/report/test-listen-qstash',
       {
         message: 'Hello, QStash!',

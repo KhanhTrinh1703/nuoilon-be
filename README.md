@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/nuoilon.png" width="200" alt="Nuoilon Logo" />
+</p>
+
 # Nuoilon Backend
 
 ## Overview

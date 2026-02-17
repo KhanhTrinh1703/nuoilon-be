@@ -3,17 +3,17 @@ import { GoogleGenAI, GenerateContentResponse, Part } from '@google/genai';
 import { ConfigService } from '@nestjs/config';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import {
-  GeminiOcrResponseDto,
-  GeminiOcrResponseSchema,
-} from './dto/gemini-ocr-response.dto';
 import axios from 'axios';
 import { fileTypeFromBuffer } from 'file-type';
 import { randomInt } from 'crypto';
 import {
+  FundPriceResponse,
+  FundPriceResponseSchema,
   GreetingSchema,
   GeminiGreetingResponseDto,
-} from './dto/gemini-greeting-response.dto';
+  GeminiOcrResponseDto,
+  GeminiOcrResponseSchema,
+} from './dto';
 
 @Injectable()
 export class GeminiService {
@@ -59,7 +59,7 @@ export class GeminiService {
     }
   }
 
-  async getCertificatePrice(): Promise<Record<string, unknown>> {
+  async getCertificatePrice(): Promise<FundPriceResponse> {
     this.assertReady();
     try {
       const prompts = this.loadPromptTemplate('price-prompt.txt');
@@ -72,13 +72,20 @@ export class GeminiService {
           tools: [{ urlContext: {} }],
         },
       });
-      const textContent = response.candidates?.[0]?.content?.parts?.[0]?.text;
+      const textContent =
+        response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const parsed = this.extractJson(textContent);
+      const result = FundPriceResponseSchema.safeParse(parsed);
 
-      const parsed = this.extractJson(textContent!) as unknown as Record<
-        string,
-        unknown
-      >;
-      return parsed;
+      if (!result.success) {
+        this.logger.warn(
+          'Failed to validate Gemini fund price response',
+          result.error.issues,
+        );
+        return { price: 0, confidence: 0 };
+      }
+
+      return result.data;
     } catch (error) {
       this.logger.error('Error fetching Gemini model info', error);
       throw new Error('Gemini API error');

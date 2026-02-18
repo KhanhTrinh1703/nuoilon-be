@@ -223,11 +223,11 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       await this.certificateService.handleCustomDate(ctx);
     });
 
-    this.bot.action(/^ocr_confirm_[^_]+_[^_]+$/, async (ctx) => {
+    this.bot.action(/^ocr_confirm_[^_]+$/, async (ctx) => {
       await this.telegramOcrService.handleUserConfirmation(ctx, this.bot);
     });
 
-    this.bot.action(/^ocr_reject_[^_]+_[^_]+$/, async (ctx) => {
+    this.bot.action(/^ocr_reject_[^_]+$/, async (ctx) => {
       await this.telegramOcrService.handleUserRejection(ctx, this.bot);
     });
 

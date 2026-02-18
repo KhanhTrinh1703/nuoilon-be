@@ -21,13 +21,7 @@ Extract:
 - matched_quantity (number)
 Rules:
 - Return JSON only.
-- Use this exact JSON shape:
-  {
-    "type": "certificate",
-    "matched_price": number,
-    "matched_quantity": number,
-    "confidence": number,
-  }
+- Use this exact JSON shape: { "type": "certificate", "matched_price": number, "matched_quantity": number, "confidence": number }
 - If a field is not visible, use 0.
 - Do not include markdown code fences.
 

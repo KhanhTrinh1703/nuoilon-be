@@ -11,6 +11,7 @@ export class UpstashQstashService {
 
   constructor(private readonly configService: ConfigService) {
     const token = this.configService.get<string>('qstash.token');
+    const qstashUrl = this.configService.get<string>('qstash.url');
     const server = this.configService.get<string>('serverUrl') ?? '';
     this.serverEndpoint = server;
 
@@ -20,7 +21,7 @@ export class UpstashQstashService {
       return;
     }
 
-    this.client = new Client({ token });
+    this.client = new Client({ baseUrl: qstashUrl, token });
   }
 
   async sendMessage(
@@ -34,7 +35,9 @@ export class UpstashQstashService {
     }
 
     const url = `${this.serverEndpoint}${path}`;
-    this.logger.debug(`Sending message to QStash: ${url} with payload`);
+    this.logger.debug(
+      `Sending message to QStash: ${url} with payload ${JSON.stringify(payload)}`,
+    );
 
     try {
       await this.client.publishJSON({
@@ -45,7 +48,7 @@ export class UpstashQstashService {
         },
         body: payload,
         delay: options?.delay ?? 0,
-        retry: options?.retry ?? 0,
+        retry: options?.retry ?? 1,
       });
 
       this.logger.debug('Message published to QStash successfully');

@@ -24,7 +24,7 @@ import { TelegramQstashService } from './telegram-qstash.service';
 interface OcrCallbackData {
   action: 'confirm' | 'reject';
   jobId: string;
-  token: string;
+  // token: string;
 }
 
 @Injectable()
@@ -292,10 +292,10 @@ export class TelegramOcrService {
         return;
       }
 
-      if (!job.confirmToken || job.confirmToken !== callbackData.token) {
-        await ctx.reply('❌ Token xác nhận không hợp lệ hoặc đã hết hạn.');
-        return;
-      }
+      // if (!job.confirmToken || job.confirmToken !== callbackData.token) {
+      //   await ctx.reply('❌ Token xác nhận không hợp lệ hoặc đã hết hạn.');
+      //   return;
+      // }
 
       const resultJson =
         (job.ocrResultJson as Record<string, unknown> | null) ?? undefined;
@@ -408,10 +408,10 @@ export class TelegramOcrService {
         return;
       }
 
-      if (!job.confirmToken || job.confirmToken !== callbackData.token) {
-        await ctx.reply('❌ Token từ chối không hợp lệ hoặc đã hết hạn.');
-        return;
-      }
+      // if (!job.confirmToken || job.confirmToken !== callbackData.token) {
+      //   await ctx.reply('❌ Token từ chối không hợp lệ hoặc đã hết hạn.');
+      //   return;
+      // }
 
       await this.ocrJobRepository.markRejected(job.id, new Date());
       await this.editDecisionMessage(bot, job, '❌ Đã hủy bỏ');
@@ -452,13 +452,13 @@ export class TelegramOcrService {
           [
             {
               text: '✅ Xác nhận',
-              callback_data: `ocr_confirm_${jobId}_${confirmToken}`,
+              callback_data: `ocr_confirm_${jobId}`,
             },
           ],
           [
             {
               text: '❌ Hủy bỏ',
-              callback_data: `ocr_reject_${jobId}_${confirmToken}`,
+              callback_data: `ocr_reject_${jobId}`,
             },
           ],
         ],
@@ -547,14 +547,14 @@ export class TelegramOcrService {
   resolveTransactionType(
     resultJson: Record<string, unknown>,
   ): 'deposit' | 'certificate' {
-    const raw = this.toSafeString(resultJson.transactionType).toLowerCase();
+    const raw = this.toSafeString(resultJson.type).toLowerCase();
 
     if (raw === 'deposit' || raw === 'certificate') {
       return raw;
     }
 
     throw new BadRequestException(
-      `Unsupported transactionType: ${resultJson.transactionType as string}`,
+      `Unsupported transactionType: ${resultJson.type as string}`,
     );
   }
 
@@ -588,11 +588,11 @@ export class TelegramOcrService {
 
     const raw = callbackQuery.data;
     const parts = raw.split('_');
-    if (parts.length !== 4) {
+    if (parts.length !== 3) {
       return null;
     }
 
-    const [prefix, action, jobId, token] = parts;
+    const [prefix, action, jobId] = parts;
 
     if (prefix !== 'ocr') {
       return null;
@@ -602,14 +602,14 @@ export class TelegramOcrService {
       return null;
     }
 
-    if (!jobId || !token) {
+    if (!jobId) {
       return null;
     }
 
     return {
       action: expectedAction,
       jobId,
-      token,
+      // token,
     };
   }
 

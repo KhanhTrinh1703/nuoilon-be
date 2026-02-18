@@ -13,12 +13,14 @@ import { Receiver } from '@upstash/qstash';
 export class UpstashSignatureGuard implements CanActivate {
   private readonly receiver: Receiver;
   private readonly logger = new Logger(UpstashSignatureGuard.name);
+  private readonly serverEndpoint: string;
 
   constructor(configService: ConfigService) {
     this.receiver = new Receiver({
       currentSigningKey: configService.get<string>('qstash.currentSigningKey'),
       nextSigningKey: configService.get<string>('qstash.nextSigningKey'),
     });
+    this.serverEndpoint = configService.get<string>('serverUrl') ?? '';
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -30,7 +32,7 @@ export class UpstashSignatureGuard implements CanActivate {
       await this.receiver.verify({
         body,
         signature,
-        url: `${request.protocol}://${request.get('host')}${request.originalUrl}`,
+        url: `${this.serverEndpoint}${request.originalUrl}`,
       });
     } catch (error) {
       this.logger.error('Error verifying Upstash signature', error as Error);

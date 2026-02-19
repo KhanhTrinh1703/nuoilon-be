@@ -158,6 +158,7 @@ This project includes a fully-featured Telegram bot ([src/telegram/telegram.serv
   - Filenames: `{timestamp}_{telegramUserId}_{originalName}`
 - **Report Generation**: ReportImageService generates visual investment reports
 - **Webhook Mode**: Use `npm run telegram:setup` to configure webhook for production
+- **OCR Flow**: `TelegramService` only wires bot actions and delegates OCR handling to `TelegramOcrService`
 
 ## Documentation Generation
 
@@ -283,6 +284,19 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 SUPABASE_STORAGE_BUCKET=telegram-uploads
 SUPABASE_UPLOAD_FOLDER=images
 ```
+
+## Common Services
+
+This repository centralizes shared infrastructure services under `src/common/services` to avoid duplication between clients.
+
+- **Placement:** put reusable infra code under `src/common/services/*` and export via `CommonServicesModule`.
+- **Examples (already present):**
+  - `src/common/services/ai/gemini.service.ts` — AI/OCR and prompt templates
+  - `src/common/services/storage/supabase-storage.service.ts` — Supabase upload + signed URLs
+  - `src/common/services/messaging/upstash-qstash.service.ts` — QStash HTTP publisher
+- **Telegram wrappers:** keep thin Telegram-specific adapters in `src/telegram/services/` (e.g. `telegram-qstash.service.ts`).
+
+When adding infra that multiple clients will use, add it to `src/common/services`, register it in `CommonServicesModule`, and update docs in `docs/`.
 
 ## Github Copilot Instructions
 Check coding guidelines instructions

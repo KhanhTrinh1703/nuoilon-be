@@ -5,6 +5,7 @@ import { FundPriceRepository } from '../repositories/fund-price.repository';
 import { DepositTransactionRepository } from '../repositories/deposit-transaction.repository';
 import { CertificateTransactionRepository } from '../repositories/certificate-transaction.repository';
 import { TelegramConversationService } from './telegram-conversation.service';
+import { GeminiService } from 'src/common/services/ai/gemini.service';
 
 /**
  * Service for handling basic Telegram bot commands
@@ -19,13 +20,15 @@ export class TelegramCommandsService {
     private readonly depositTransactionRepository: DepositTransactionRepository,
     private readonly certificateTransactionRepository: CertificateTransactionRepository,
     private readonly conversationService: TelegramConversationService,
+    private readonly geminiService: GeminiService,
   ) {}
 
   /**
    * Handle /hi command - Simple greeting
    */
-  handleHiCommand(ctx: Context): void {
-    ctx.reply('Chào mấy con gà, mấy con gà làm đếch gì biết về tài chính!');
+  async handleHiCommand(ctx: Context): Promise<void> {
+    const greeting = await this.geminiService.greet();
+    ctx.reply(greeting.message);
   }
 
   /**

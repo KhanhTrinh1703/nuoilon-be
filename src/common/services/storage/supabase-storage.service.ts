@@ -1,23 +1,23 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseClient, createClient } from '@supabase/supabase-js';
 import { extname } from 'path';
 import {
   IMAGE_FILE_ALLOWED_EXTENSIONS,
-  // IMAGE_FILE_ALLOWED_MIME_TYPES,
   IMAGE_FILE_MAX_SIZE_BYTES,
   IMAGE_FILE_SIZE_ERROR_MESSAGE,
   IMAGE_FILE_TYPE_ERROR_MESSAGE,
-} from '../../common/constants/file-upload.constants';
+} from '../../constants/file-upload.constants';
+import { UploadImageResult, UploadPayload } from './dto/upload-image.dto';
 
-interface UploadPayload {
-  buffer: Buffer;
-  filename: string;
-  mimeType: string;
-  fileSize: number;
-}
+export type { UploadImageResult, UploadPayload } from './dto/upload-image.dto';
 
-const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 @Injectable()
 export class SupabaseStorageService {
@@ -54,22 +54,23 @@ export class SupabaseStorageService {
     this.initializeSupabaseClient(supabaseUrl, serviceRoleKey);
   }
 
-  async uploadImage(payload: UploadPayload): Promise<{ webUrl: string }> {
+  async uploadImage(payload: UploadPayload): Promise<UploadImageResult> {
     if (!this.client) {
       this.logger.error('Supabase Storage is not initialized');
       throw new Error('Storage not configured');
     }
 
-    // Validate payload before attempting upload
     this.validateFilePayload(payload);
 
-    const path = this.buildStoragePath(payload.filename);
+    const storageBucket = this.bucketName;
+    const storagePath = this.buildStoragePath(payload.filename);
+    const contentType = payload.mimeType;
 
     try {
       const { error } = await this.client.storage
-        .from(this.bucketName)
-        .upload(path, payload.buffer, {
-          contentType: payload.mimeType,
+        .from(storageBucket)
+        .upload(storagePath, payload.buffer, {
+          contentType,
           upsert: false,
         });
 
@@ -77,23 +78,70 @@ export class SupabaseStorageService {
         throw error;
       }
 
-      const publicUrl = this.getPublicUrl(path);
-      if (publicUrl) {
-        return { webUrl: publicUrl };
+      // build signed web URL
+      const { data, error: signedErr } = await this.client.storage
+        .from(storageBucket)
+        .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+
+      if (signedErr) {
+        this.logger.warn(
+          `Failed to create signed URL for ${storageBucket}/${storagePath}: ${this.formatError(signedErr)}`,
+        );
       }
 
-      const signedUrl = await this.createSignedUrl(path);
-      if (signedUrl) {
-        return { webUrl: signedUrl };
-      }
+      const webUrl = data?.signedUrl ?? '';
 
-      throw new Error('Unable to generate Supabase Storage URL');
+      return {
+        webUrl,
+        storageBucket,
+        storagePath,
+        contentType,
+      };
     } catch (err: unknown) {
       this.logger.error(
         `Failed to upload to Supabase Storage: ${this.formatError(err)}`,
       );
       throw err;
     }
+  }
+
+  async createSignedUrl(
+    storageBucket: string,
+    storagePath: string,
+  ): Promise<{ signedUrl: string; expiresAt: number }> {
+    if (!this.client) {
+      this.logger.error('Supabase Storage is not initialized');
+      throw new ServiceUnavailableException('Storage not configured');
+    }
+
+    if (!storageBucket) {
+      throw new BadRequestException('storageBucket is required');
+    }
+
+    if (!storagePath) {
+      throw new BadRequestException('storagePath is required');
+    }
+
+    const { data, error } = await this.client.storage
+      .from(storageBucket)
+      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+
+    if (error) {
+      this.logger.warn(
+        `Failed to create signed URL for ${storageBucket}/${storagePath}: ${this.formatError(error)}`,
+      );
+      throw new ServiceUnavailableException('Unable to create signed URL');
+    }
+
+    const signedUrl = data?.signedUrl ?? '';
+    if (!signedUrl) {
+      throw new ServiceUnavailableException('Unable to create signed URL');
+    }
+
+    return {
+      signedUrl,
+      expiresAt: Date.now() + SIGNED_URL_TTL_SECONDS * 1000,
+    };
   }
 
   private initializeSupabaseClient(url: string, serviceRoleKey: string): void {
@@ -113,26 +161,10 @@ export class SupabaseStorageService {
     }
   }
 
-  private getPublicUrl(path: string): string | null {
-    if (!this.client) return null;
-    const { data } = this.client.storage
-      .from(this.bucketName)
-      .getPublicUrl(path);
-    return data?.publicUrl ?? null;
-  }
-
   private validateFilePayload(payload: UploadPayload): void {
     if (payload.fileSize > IMAGE_FILE_MAX_SIZE_BYTES) {
       throw new BadRequestException(IMAGE_FILE_SIZE_ERROR_MESSAGE);
     }
-
-    // const normalizedMimeType = payload.mimeType?.toLowerCase() ?? '';
-    // if (
-    //   !normalizedMimeType ||
-    //   !IMAGE_FILE_ALLOWED_MIME_TYPES.includes(normalizedMimeType)
-    // ) {
-    //   throw new BadRequestException(IMAGE_FILE_TYPE_ERROR_MESSAGE);
-    // }
 
     const normalizedExtension = extname(payload.filename ?? '').toLowerCase();
     if (
@@ -142,23 +174,6 @@ export class SupabaseStorageService {
       this.logger.warn(`IMAGE_FILE_TYPE_ERROR_MESSAGE: ${normalizedExtension}`);
       throw new BadRequestException(IMAGE_FILE_TYPE_ERROR_MESSAGE);
     }
-  }
-
-  private async createSignedUrl(path: string): Promise<string | null> {
-    if (!this.client) return null;
-
-    const { data, error } = await this.client.storage
-      .from(this.bucketName)
-      .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
-
-    if (error) {
-      this.logger.warn(
-        `Failed to create signed URL for ${path}: ${this.formatError(error)}`,
-      );
-      return null;
-    }
-
-    return data?.signedUrl ?? null;
   }
 
   private buildStoragePath(filename: string): string {

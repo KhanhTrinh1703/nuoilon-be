@@ -8,7 +8,6 @@ import { randomUUID } from 'crypto';
 import { format } from 'date-fns';
 import { Context, Telegraf } from 'telegraf';
 import axios from 'axios';
-import { fileTypeFromBuffer } from 'file-type';
 import { OcrJob, OcrJobStatus } from '../../database/entities/ocr-job.entity';
 import { OcrErrorCallbackDto } from '../dto/ocr-error-callback.dto';
 import { OcrResultCallbackDto } from '../dto/ocr-result-callback.dto';
@@ -729,6 +728,7 @@ export class TelegramOcrService {
       responseType: 'arraybuffer',
     });
     const buffer = Buffer.from(response.data as ArrayBufferLike);
+    const { fileTypeFromBuffer } = await import('file-type');
     const fileTypeResult = await fileTypeFromBuffer(buffer);
     const mimeType = fileTypeResult?.mime ?? 'image/jpeg';
     return { buffer, mimeType };

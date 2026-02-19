@@ -1,7 +1,7 @@
 import { Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WebService } from './web.service';
-import { UpstashSignatureGuard } from 'src/common/guards/upstash-signature.guard';
+import { UpstashSignatureGuard } from '../common/guards/upstash-signature.guard';
 
 @ApiTags('web')
 @Controller({ path: 'web', version: '1' })

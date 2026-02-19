@@ -24,7 +24,7 @@ import { TelegramQstashService } from './telegram-qstash.service';
 interface OcrCallbackData {
   action: 'confirm' | 'reject';
   jobId: string;
-  token: string;
+  // token: string;
 }
 
 @Injectable()
@@ -292,10 +292,10 @@ export class TelegramOcrService {
         return;
       }
 
-      if (!job.confirmToken || job.confirmToken !== callbackData.token) {
-        await ctx.reply('❌ Token xác nhận không hợp lệ hoặc đã hết hạn.');
-        return;
-      }
+      // if (!job.confirmToken || job.confirmToken !== callbackData.token) {
+      //   await ctx.reply('❌ Token xác nhận không hợp lệ hoặc đã hết hạn.');
+      //   return;
+      // }
 
       const resultJson =
         (job.ocrResultJson as Record<string, unknown> | null) ?? undefined;
@@ -357,7 +357,21 @@ export class TelegramOcrService {
       await this.editDecisionMessage(
         bot,
         job,
-        '✅ Đã xác nhận và lưu giao dịch',
+        `✅ Đã xác nhận và lưu giao dịch
+        \nMã giao dịch: ${transactionRecordId}
+        \nLoại: ${transactionType === 'deposit' ? 'Gửi tiền' : 'Mua chứng chỉ quỹ'}
+        \nNgày giao dịch: ${transactionDate}
+        \nSố tiền: ${transactionType === 'deposit' ? this.formatCurrency(resultJson.amount) : 'N/A'}
+        ${
+          transactionType === 'certificate' && resultJson.matched_quantity
+            ? `\nSL chứng chỉ: ${this.parseRequiredNumber(
+                resultJson.matched_quantity,
+                'numberOfCertificates',
+              )}`
+            : ''
+        }
+        ${transactionType === 'certificate' && resultJson.matched_price ? `\nGiá khớp: ${this.formatCurrency(resultJson.matched_price)}` : ''}
+        `,
       );
 
       this.logger.log(
@@ -408,13 +422,17 @@ export class TelegramOcrService {
         return;
       }
 
-      if (!job.confirmToken || job.confirmToken !== callbackData.token) {
-        await ctx.reply('❌ Token từ chối không hợp lệ hoặc đã hết hạn.');
-        return;
-      }
+      // if (!job.confirmToken || job.confirmToken !== callbackData.token) {
+      //   await ctx.reply('❌ Token từ chối không hợp lệ hoặc đã hết hạn.');
+      //   return;
+      // }
 
       await this.ocrJobRepository.markRejected(job.id, new Date());
-      await this.editDecisionMessage(bot, job, '❌ Đã hủy bỏ');
+      await this.editDecisionMessage(
+        bot,
+        job,
+        '❌ Đã hủy bỏ xác nhận OCR. Giao dịch không được lưu.',
+      );
 
       this.logger.log(`OCR job rejected: jobId=${job.id}`);
     } catch (error) {
@@ -452,13 +470,13 @@ export class TelegramOcrService {
           [
             {
               text: '✅ Xác nhận',
-              callback_data: `ocr_confirm_${jobId}_${confirmToken}`,
+              callback_data: `ocr_confirm_${jobId}`,
             },
           ],
           [
             {
               text: '❌ Hủy bỏ',
-              callback_data: `ocr_reject_${jobId}_${confirmToken}`,
+              callback_data: `ocr_reject_${jobId}`,
             },
           ],
         ],
@@ -532,7 +550,7 @@ export class TelegramOcrService {
     }
 
     lines.push('');
-    lines.push('Vui lòng kiểm tra và chọn *Xác nhận* hoặc *Từ chối*.');
+    lines.push('Vui lòng kiểm tra và chọn *Xác nhận* hoặc *Hủy bỏ*.');
 
     return lines.join('\n');
   }
@@ -547,14 +565,14 @@ export class TelegramOcrService {
   resolveTransactionType(
     resultJson: Record<string, unknown>,
   ): 'deposit' | 'certificate' {
-    const raw = this.toSafeString(resultJson.transactionType).toLowerCase();
+    const raw = this.toSafeString(resultJson.type).toLowerCase();
 
     if (raw === 'deposit' || raw === 'certificate') {
       return raw;
     }
 
     throw new BadRequestException(
-      `Unsupported transactionType: ${resultJson.transactionType as string}`,
+      `Unsupported transactionType: ${resultJson.type as string}`,
     );
   }
 
@@ -588,11 +606,11 @@ export class TelegramOcrService {
 
     const raw = callbackQuery.data;
     const parts = raw.split('_');
-    if (parts.length !== 4) {
+    if (parts.length !== 3) {
       return null;
     }
 
-    const [prefix, action, jobId, token] = parts;
+    const [prefix, action, jobId] = parts;
 
     if (prefix !== 'ocr') {
       return null;
@@ -602,14 +620,14 @@ export class TelegramOcrService {
       return null;
     }
 
-    if (!jobId || !token) {
+    if (!jobId) {
       return null;
     }
 
     return {
       action: expectedAction,
       jobId,
-      token,
+      // token,
     };
   }
 

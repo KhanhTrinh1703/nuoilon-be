@@ -136,8 +136,8 @@ export class TelegramController {
   }
 
   @Post('ocr-jobs/start')
-  @UseGuards(HmacSignatureGuard)
-  @ApiSecurity('HMAC-Signature')
+  @UseGuards(UpstashSignatureGuard)
+  @ApiSecurity('Upstash-Signature')
   @ApiOperation({
     summary: 'Start OCR job for uploaded image',
     description:
@@ -154,8 +154,8 @@ export class TelegramController {
   }
 
   @Post('ocr-jobs/:jobId/result')
-  @UseGuards(HmacSignatureGuard)
-  @ApiSecurity('HMAC-Signature')
+  @UseGuards(UpstashSignatureGuard)
+  @ApiSecurity('Upstash-Signature')
   @ApiOperation({
     summary: 'OCR worker callback to submit parsed OCR result for confirmation',
     description:

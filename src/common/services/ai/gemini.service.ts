@@ -195,7 +195,7 @@ export class GeminiService {
 
   private extractJson(text: string): Record<string, unknown> {
     let cleaned = text.trim();
-
+    this.logger.debug('Raw Gemini response text', cleaned);
     const fencedMatch = cleaned.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
     if (fencedMatch) {
       cleaned = fencedMatch[1];

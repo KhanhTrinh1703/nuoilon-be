@@ -59,7 +59,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     this.setupPhotoHandler();
   }
 
-  async onModuleInit() {
+  onModuleInit() {
     if (!this.bot) {
       this.logger.warn(
         'Telegram bot is not initialized. Skipping webhook setup.',
@@ -75,7 +75,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
 
     if (this.webhookUrl) {
       try {
-        await this.setWebhook();
+        // await this.setWebhook();
       } catch (error) {
         this.logger.error('Error setting up webhook on module init:', error);
       }
@@ -223,11 +223,11 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       await this.certificateService.handleCustomDate(ctx);
     });
 
-    this.bot.action(/^ocr_confirm_[^_]+_[^_]+$/, async (ctx) => {
+    this.bot.action(/^ocr_confirm_[^_]+$/, async (ctx) => {
       await this.telegramOcrService.handleUserConfirmation(ctx, this.bot);
     });
 
-    this.bot.action(/^ocr_reject_[^_]+_[^_]+$/, async (ctx) => {
+    this.bot.action(/^ocr_reject_[^_]+$/, async (ctx) => {
       await this.telegramOcrService.handleUserRejection(ctx, this.bot);
     });
 

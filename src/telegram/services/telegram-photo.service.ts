@@ -99,7 +99,7 @@ export class TelegramPhotoService {
       // select highest resolution (last in array)
       const best = photos[photos.length - 1];
       const fileId = best.file_id;
-      const idempotencyKey = best.file_unique_id;
+      const idempotencyKey = `${best.file_unique_id}_${new Date().getTime()}`;
       const fileLink = await ctx.telegram.getFileLink(fileId);
       const response = await axios.get(fileLink.href, {
         responseType: 'arraybuffer',

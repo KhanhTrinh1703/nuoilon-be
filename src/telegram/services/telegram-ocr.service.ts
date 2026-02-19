@@ -357,7 +357,21 @@ export class TelegramOcrService {
       await this.editDecisionMessage(
         bot,
         job,
-        '✅ Đã xác nhận và lưu giao dịch',
+        `✅ Đã xác nhận và lưu giao dịch
+        \nMã giao dịch: ${transactionRecordId}
+        \nLoại: ${transactionType === 'deposit' ? 'Gửi tiền' : 'Mua chứng chỉ quỹ'}
+        \nNgày giao dịch: ${transactionDate}
+        \nSố tiền: ${transactionType === 'deposit' ? this.formatCurrency(resultJson.amount) : 'N/A'}
+        ${
+          transactionType === 'certificate' && resultJson.matched_quantity
+            ? `\nSL chứng chỉ: ${this.parseRequiredNumber(
+                resultJson.matched_quantity,
+                'numberOfCertificates',
+              )}`
+            : ''
+        }
+        ${transactionType === 'certificate' && resultJson.matched_price ? `\nGiá khớp: ${this.formatCurrency(resultJson.matched_price)}` : ''}
+        `,
       );
 
       this.logger.log(
@@ -414,7 +428,11 @@ export class TelegramOcrService {
       // }
 
       await this.ocrJobRepository.markRejected(job.id, new Date());
-      await this.editDecisionMessage(bot, job, '❌ Đã hủy bỏ');
+      await this.editDecisionMessage(
+        bot,
+        job,
+        '❌ Đã hủy bỏ xác nhận OCR. Giao dịch không được lưu.',
+      );
 
       this.logger.log(`OCR job rejected: jobId=${job.id}`);
     } catch (error) {
@@ -532,7 +550,7 @@ export class TelegramOcrService {
     }
 
     lines.push('');
-    lines.push('Vui lòng kiểm tra và chọn *Xác nhận* hoặc *Từ chối*.');
+    lines.push('Vui lòng kiểm tra và chọn *Xác nhận* hoặc *Hủy bỏ*.');
 
     return lines.join('\n');
   }

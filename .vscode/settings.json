@@ -1,4 +1,16 @@
 {
-    "editor.tabSize": 2,
-    "postman.settings.dotenv-detection-notification-visibility": false
+  "editor.tabSize": 2,
+  "postman.settings.dotenv-detection-notification-visibility": false,
+  "editor.formatOnSave": false,
+  "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.format.enable": true,
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ]
 }

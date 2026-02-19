@@ -100,3 +100,12 @@ curl -X POST https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook \
 
 ## Rate Limiting & Audit Trail
 
+## Service Ownership
+
+- Telegram domain logic remains in `src/telegram/services/*`.
+- Infrastructure services are centralized in `src/common/services/*`:
+  - `ai/gemini.service.ts`
+  - `storage/supabase-storage.service.ts`
+  - `messaging/upstash-qstash.service.ts`
+- Telegram-specific message publishing helpers are in `src/telegram/services/telegram-qstash.service.ts`.
+

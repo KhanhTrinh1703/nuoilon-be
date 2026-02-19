@@ -1,7 +1,7 @@
 ---
 name: sa-generate
 description: Structured Autonomy Implementation Generator Prompt
-model: GPT-5.2-Codex (copilot)
+model: GPT-5.3-Codex (copilot)
 agent: agent
 ---
 

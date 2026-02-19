@@ -3,8 +3,14 @@ import axios from 'axios';
 import { extname } from 'path';
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { Context } from 'telegraf';
-import { SupabaseStorageService } from './supabase-storage.service';
+import {
+  SupabaseStorageService,
+  UploadImageResult,
+} from '../../common/services/storage/supabase-storage.service';
 import { UploadLogRepository } from '../repositories/upload-log.repository';
+import { OcrJobRepository } from '../repositories/ocr-job.repository';
+import { formatTimestampForFileName } from '../utils/format-datetime.util';
+import { TelegramQstashService } from './telegram-qstash.service';
 
 /**
  * Service for handling photo uploads in Telegram bot
@@ -19,6 +25,8 @@ export class TelegramPhotoService {
   constructor(
     private readonly supabaseStorageService: SupabaseStorageService,
     private readonly uploadLogRepository: UploadLogRepository,
+    private readonly ocrJobRepository: OcrJobRepository,
+    private readonly telegramQstashService: TelegramQstashService,
   ) {}
 
   /**
@@ -91,7 +99,7 @@ export class TelegramPhotoService {
       // select highest resolution (last in array)
       const best = photos[photos.length - 1];
       const fileId = best.file_id;
-
+      const idempotencyKey = `${best.file_unique_id}_${new Date().getTime()}`;
       const fileLink = await ctx.telegram.getFileLink(fileId);
       const response = await axios.get(fileLink.href, {
         responseType: 'arraybuffer',
@@ -101,27 +109,55 @@ export class TelegramPhotoService {
       const mimeType =
         response.headers['content-type'] || 'application/octet-stream';
       const ext = extname(fileLink.pathname || '') || '.jpg';
-      const filename = `${Date.now()}_${userId}${ext}`;
+      const filename = `${formatTimestampForFileName(new Date())}_${userId}${ext}`;
 
       // upload to Supabase Storage
-      const { webUrl } = await this.supabaseStorageService.uploadImage({
-        buffer,
-        filename,
-        mimeType,
-        fileSize: buffer.length,
-      });
+      const uploadResult: UploadImageResult =
+        await this.supabaseStorageService.uploadImage({
+          buffer,
+          filename,
+          mimeType,
+          fileSize: buffer.length,
+        });
 
-      // create upload log
+      // create upload log (existing behavior)
       await this.uploadLogRepository.createUploadLog({
         telegramUserId: String(userId),
         telegramMessageId: String(ctx.message.message_id),
         originalName: filename,
         mimeType,
         fileSize: buffer.length,
-        storageUrl: webUrl,
+        storageUrl: uploadResult.webUrl,
       });
 
-      ctx.reply(`Upload successful: ${filename}`);
+      const chatId = ctx.chat?.id;
+      if (typeof chatId !== 'number') {
+        ctx.reply('Upload successful, but could not determine chat context.');
+        this.pendingUploads.delete(userId);
+        return;
+      }
+
+      // create OCR job (idempotent on tg_file_unique_id)
+      const job = await this.ocrJobRepository.findOrCreatePending({
+        tgFileUniqueId: idempotencyKey,
+        tgChatId: String(chatId),
+        tgUserId: String(userId),
+        storageBucket: uploadResult.storageBucket,
+        storagePath: uploadResult.storagePath,
+        contentType: uploadResult.contentType,
+        maxAttempts: 2,
+      });
+
+      // publish OCR job to Qstash
+      await this.telegramQstashService.publishOcrJob({
+        jobId: job.id,
+        idempotencyKey,
+        chatId,
+        userId,
+      });
+
+      await ctx.reply(`Ảnh đã được tải lên. Đang xử lý OCR...
+        \nTên file: ${filename}`);
       this.pendingUploads.delete(userId);
     } catch (err) {
       this.logger.error('Photo upload failed', err);

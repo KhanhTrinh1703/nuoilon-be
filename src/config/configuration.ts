@@ -1,6 +1,8 @@
 export default () => ({
   port: parseInt(process.env.PORT ?? '3000', 10) || 3000,
   appMode: process.env.APP_MODE || 'web',
+  serverUrl:
+    process.env.SERVER_URL || `http://localhost:${process.env.PORT || 3000}`,
   database: {
     // Cloud connection (NeonDB) - takes priority if present
     url: process.env.DATABASE_URL,
@@ -24,15 +26,28 @@ export default () => ({
     webhookUrl: process.env.TELEGRAM_WEBHOOK_URL,
     allowedUserIds: process.env.TELEGRAM_ALLOWED_USER_IDS,
   },
-  firebase: {
-    serviceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    uploadFolder: process.env.FIREBASE_UPLOAD_FOLDER || 'telegram-uploads',
-  },
   supabase: {
     url: process.env.SUPABASE_URL,
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     storageBucket: process.env.SUPABASE_STORAGE_BUCKET,
     uploadFolder: process.env.SUPABASE_UPLOAD_FOLDER || 'images',
+  },
+  ocr: {
+    maxAttempts: parseInt(process.env.OCR_MAX_ATTEMPTS ?? '2', 10) || 2,
+  },
+  qstash: {
+    url: process.env.QSTASH_URL,
+    token: process.env.QSTASH_TOKEN,
+    currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY,
+    nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY,
+  },
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY,
+    models: process.env.GEMINI_MODELS
+      ? process.env.GEMINI_MODELS.split(',').map((m) => m.trim())
+      : ['gemini-2.5-flash-lite'],
+    temperature: parseFloat(process.env.GEMINI_TEMPERATURE ?? '0.0') || 0.0,
+    maxOutputTokens:
+      parseInt(process.env.GEMINI_MAX_OUTPUT_TOKENS ?? '1024', 10) || 1024,
   },
 });

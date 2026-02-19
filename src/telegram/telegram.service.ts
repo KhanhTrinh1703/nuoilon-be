@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-floating-promises */
 import {
   Injectable,
   Logger,
@@ -9,12 +8,17 @@ import { ConfigService } from '@nestjs/config';
 import { Telegraf, Context } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { Update } from 'telegraf/types';
+import { OcrResultCallbackDto } from './dto/ocr-result-callback.dto';
+import { OcrResultResponseDto } from './dto/ocr-result-response.dto';
+import { OcrErrorCallbackDto } from './dto/ocr-error-callback.dto';
 import { ReportImageService } from './services/report-image.service';
 import { TelegramConversationService } from './services/telegram-conversation.service';
 import { TelegramCommandsService } from './services/telegram-commands.service';
 import { TelegramDepositService } from './services/telegram-deposit.service';
 import { TelegramCertificateService } from './services/telegram-certificate.service';
 import { TelegramPhotoService } from './services/telegram-photo.service';
+import { TelegramOcrService } from './services/telegram-ocr.service';
+import { PublishOcrJobDto } from './dto/publish-ocr-job-dto';
 
 /**
  * Main Telegram service that coordinates all bot functionality
@@ -37,6 +41,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly depositService: TelegramDepositService,
     private readonly certificateService: TelegramCertificateService,
     private readonly photoService: TelegramPhotoService,
+    private readonly telegramOcrService: TelegramOcrService,
   ) {
     this.botToken = this.configService.get<string>('telegram.botToken') ?? '';
     this.webhookUrl =
@@ -54,7 +59,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     this.setupPhotoHandler();
   }
 
-  async onModuleInit() {
+  onModuleInit() {
     if (!this.bot) {
       this.logger.warn(
         'Telegram bot is not initialized. Skipping webhook setup.',
@@ -70,7 +75,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
 
     if (this.webhookUrl) {
       try {
-        await this.setWebhook();
+        // await this.setWebhook();
       } catch (error) {
         this.logger.error('Error setting up webhook on module init:', error);
       }
@@ -122,8 +127,8 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     // === BASIC COMMANDS ===
 
     // /hi command
-    this.bot.command('hi', (ctx: Context) => {
-      this.commandsService.handleHiCommand(ctx);
+    this.bot.command('hi', async (ctx: Context) => {
+      await this.commandsService.handleHiCommand(ctx);
     });
 
     // /reports command
@@ -132,11 +137,11 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     });
 
     // /upload command
-    this.bot.command('upload', (ctx: Context) => {
+    this.bot.command('upload', async (ctx: Context) => {
       const userId = ctx.from?.id;
       if (!userId) return ctx.reply('Unable to identify user.');
       this.photoService.startUploadSession(userId);
-      ctx.reply('Vui lòng gửi hình ảnh để upload lên Supabase Storage.');
+      await ctx.reply('Vui lòng gửi hình ảnh để upload lên Supabase Storage.');
     });
 
     // /report_image command
@@ -181,7 +186,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         this.logger.log(`User ${userId} initiated /input command`);
       } catch (error) {
         this.logger.error('Error in /input command:', error);
-        ctx.reply('❌ Đã xảy ra lỗi. Vui lòng thử lại sau.');
+        await ctx.reply('❌ Đã xảy ra lỗi. Vui lòng thử lại sau.');
       }
     });
 
@@ -216,6 +221,14 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
 
     this.bot.action('certificate_date_custom', async (ctx) => {
       await this.certificateService.handleCustomDate(ctx);
+    });
+
+    this.bot.action(/^ocr_confirm_[^_]+$/, async (ctx) => {
+      await this.telegramOcrService.handleUserConfirmation(ctx, this.bot);
+    });
+
+    this.bot.action(/^ocr_reject_[^_]+$/, async (ctx) => {
+      await this.telegramOcrService.handleUserRejection(ctx, this.bot);
     });
 
     // Error handler
@@ -279,7 +292,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
    */
   private async handleReportImageCommand(ctx: Context): Promise<void> {
     if (this.isGeneratingReport) {
-      ctx.reply(
+      await ctx.reply(
         '⏳ Hệ thống đang bận xử lí báo cáo, vui lòng thử lại sau ít phút.',
       );
       return;
@@ -287,7 +300,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
 
     try {
       this.isGeneratingReport = true;
-      ctx.reply('📸 Đang tạo báo cáo ảnh, xin chờ...');
+      await ctx.reply('📸 Đang tạo báo cáo ảnh, xin chờ...');
 
       const result = await this.reportImageService.generateReportImage();
 
@@ -295,7 +308,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       await ctx.replyWithPhoto({ source: result.buffer });
     } catch (error) {
       this.logger.error('Error generating report image:', error);
-      ctx.reply('❌ Không thể tạo báo cáo ảnh, thử lại sau.');
+      await ctx.reply('❌ Không thể tạo báo cáo ảnh, thử lại sau.');
     } finally {
       this.isGeneratingReport = false;
     }
@@ -327,6 +340,31 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * OCR worker callback: persist OCR result + send Telegram confirmation buttons
+   */
+  async handleOcrResultCallback(
+    jobId: string,
+    dto: OcrResultCallbackDto,
+  ): Promise<OcrResultResponseDto> {
+    return this.telegramOcrService.handleOcrResult(this.bot, jobId, dto);
+  }
+
+  async handleOcrErrorCallback(
+    jobId: string,
+    dto: OcrErrorCallbackDto,
+  ): Promise<{
+    success: boolean;
+    jobId: string;
+    status: string;
+    attempts: number;
+    maxAttempts: number;
+    retried: boolean;
+    message: string;
+  }> {
+    return this.telegramOcrService.handleOcrError(this.bot, jobId, dto);
+  }
+
+  /**
    * Clean up resources on module destroy
    */
   onModuleDestroy(): void {
@@ -343,6 +381,10 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     description?: string,
   ): Promise<{ webUrl: string; uploadLog: any }> {
     return this.photoService.uploadImageViaRest(file, userId, description);
+  }
+
+  async startOcrJob(payload: PublishOcrJobDto): Promise<void> {
+    return this.telegramOcrService.startOcrJob(payload);
   }
 
   /**

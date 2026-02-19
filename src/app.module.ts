@@ -10,6 +10,7 @@ import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
 import { ReportModule } from './report/report.module';
 import { ScheduleModule } from './schedule/schedule.module';
+import { CommonServicesModule } from './common/services.module';
 
 const appMode = process.env.APP_MODE ?? 'web';
 const isScheduleMode = appMode === 'schedule';
@@ -25,6 +26,7 @@ const clientModules = isScheduleMode
       load: [configuration],
     }),
     DatabaseModule,
+    CommonServicesModule,
     ...clientModules,
   ],
   controllers: [AppController],

@@ -11,7 +11,9 @@ async function bootstrap() {
   logger.log(`APP_MODE=${appMode}`);
 
   // Set global prefix
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', {
+    exclude: ['/', 'favicon.ico', 'favicon.png'],
+  });
 
   // Enable versioning
   app.enableVersioning({

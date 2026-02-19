@@ -1,10 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { GoogleGenAI, GenerateContentResponse, Part } from '@google/genai';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import axios from 'axios';
-import { fileTypeFromBuffer } from 'file-type';
 import { randomInt } from 'crypto';
 import {
   FundPriceResponse,
@@ -15,10 +18,14 @@ import {
   GeminiOcrResponseSchema,
 } from './dto';
 
+// Type definitions to avoid static imports (will be loaded dynamically)
+type GenerateContentResponse = any;
+type Part = any;
+
 @Injectable()
-export class GeminiService {
+export class GeminiService implements OnModuleInit {
   private readonly logger = new Logger(GeminiService.name);
-  private genAIClient: GoogleGenAI | null = null;
+  private genAIClient: any = null;
   private readonly ocrPromptTemplate: string | null;
   private readonly temperature: number;
   private readonly maxOutputTokens: number;
@@ -31,7 +38,10 @@ export class GeminiService {
       this.configService.get<number>('gemini.temperature') ?? 0.0;
     this.maxOutputTokens =
       this.configService.get<number>('gemini.maxOutputTokens') ?? 1024;
-    this.initializeClient();
+  }
+
+  onModuleInit() {
+    void this.initializeClient();
   }
 
   async performOcr(
@@ -121,6 +131,7 @@ export class GeminiService {
       responseType: 'arraybuffer',
     });
     const buffer = Buffer.from(response.data as ArrayBufferLike);
+    const { fileTypeFromBuffer } = await import('file-type');
     const fileTypeResult = await fileTypeFromBuffer(buffer);
     const mimeType = fileTypeResult?.mime ?? 'image/jpeg';
     return this.performOcr(buffer, mimeType);
@@ -135,7 +146,8 @@ export class GeminiService {
     };
   }
 
-  private initializeClient(): void {
+  private async initializeClient(): Promise<void> {
+    const { GoogleGenAI } = await import('@google/genai');
     const apiKey = this.configService.get<string>('gemini.apiKey');
     if (!apiKey) {
       this.logger.warn(

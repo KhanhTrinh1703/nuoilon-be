@@ -3,18 +3,30 @@ import { z } from 'zod';
 // Zod Schemas
 export const DepositSchema = z.object({
   type: z.literal('deposit'),
-  amount: z.union([z.string(), z.number()]).transform(String),
+  amount: z.union([z.string(), z.number()]).transform((val) => Number(val)),
   currency: z
     .union([z.string(), z.number(), z.null()])
     .transform((val) => (val === null ? null : String(val))),
-  confidence: z.number().default(0),
+  confidence: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(val))
+    .default(0),
 });
 
 export const CertificateSchema = z.object({
   type: z.literal('certificate'),
-  matched_price: z.number().default(0),
-  matched_quantity: z.number().default(0),
-  confidence: z.number().default(0),
+  matched_price: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(val))
+    .default(0),
+  matched_quantity: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(val))
+    .default(0),
+  confidence: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(val))
+    .default(0),
 });
 
 export const UndefinedSchema = z.object({

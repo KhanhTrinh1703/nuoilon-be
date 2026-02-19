@@ -357,19 +357,19 @@ export class TelegramOcrService {
         bot,
         job,
         `✅ Đã xác nhận và lưu giao dịch
-        \nMã giao dịch: ${transactionRecordId}
-        \nLoại: ${transactionType === 'deposit' ? 'Gửi tiền' : 'Mua chứng chỉ quỹ'}
-        \nNgày giao dịch: ${transactionDate}
-        \nSố tiền: ${transactionType === 'deposit' ? this.formatCurrency(resultJson.amount) : 'N/A'}
+        - Mã giao dịch: ${transactionRecordId}
+        - Loại: ${transactionType === 'deposit' ? 'Gửi tiền' : 'Mua chứng chỉ quỹ'}
+        - Ngày giao dịch: ${transactionDate}
+        - Số tiền: ${transactionType === 'deposit' ? this.formatCurrency(resultJson.amount) : 'N/A'}
         ${
           transactionType === 'certificate' && resultJson.matched_quantity
-            ? `\nSL chứng chỉ: ${this.parseRequiredNumber(
+            ? `- SL chứng chỉ: ${this.parseRequiredNumber(
                 resultJson.matched_quantity,
                 'numberOfCertificates',
               )}`
             : ''
         }
-        ${transactionType === 'certificate' && resultJson.matched_price ? `\nGiá khớp: ${this.formatCurrency(resultJson.matched_price)}` : ''}
+        ${transactionType === 'certificate' && resultJson.matched_price ? `- Giá khớp: ${this.formatCurrency(resultJson.matched_price)}` : ''}
         `,
       );
 

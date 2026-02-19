@@ -9,6 +9,11 @@
         "include": "common/services/ai/prompts/*.txt",
         "outDir": "dist/src",
         "watchAssets": true
+      },
+      {
+        "include": "../public/**/*",
+        "outDir": "dist/public",
+        "watchAssets": true
       }
     ]
   }

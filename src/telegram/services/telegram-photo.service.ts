@@ -157,7 +157,7 @@ export class TelegramPhotoService {
       });
 
       await ctx.reply(`Ảnh đã được tải lên. Đang xử lý OCR...
-        \nTên file: ${filename}`);
+        Tên file: ${filename}`);
       this.pendingUploads.delete(userId);
     } catch (err) {
       this.logger.error('Photo upload failed', err);

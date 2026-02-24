@@ -1,4 +1,4 @@
-LET'S ACCESS THIS WEBSITE https://finance.vietstock.vn/E1VFVN30-quy-etf-dcvfmvn30.htm, and FIND CURRENT PRICE OF ETF DCVFMVN30 (HOSE: E1VFVN30) ON WEBSITE. 
+GIVE ME CURRENT PRICE OF ETF DCVFMVN30 (HOSE: E1VFVN30) BASE ON https://finance.vietstock.vn/E1VFVN30-quy-etf-dcvfmvn30.htm
 RETURN FOUND PRICE AS JSON FORMAT: { "price": number }
 NOTE: 
 - Return JSON only, DO NOT EXPLAIN ANYTHING.

@@ -79,7 +79,7 @@ export class GeminiService implements OnModuleInit {
         config: {
           temperature: this.temperature,
           maxOutputTokens: this.maxOutputTokens,
-          tools: [{ urlContext: {} }],
+          tools: [{ urlContext: {} }, { googleSearch: {} }],
         },
       });
       const textContent =

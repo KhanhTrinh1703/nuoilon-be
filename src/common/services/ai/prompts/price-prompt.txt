@@ -1,4 +1,4 @@
-GIVE ME CURRENT PRICE OF ETF DCVFMVN30 (HOSE: E1VFVN30) BASE ON https://finance.vietstock.vn/E1VFVN30-quy-etf-dcvfmvn30.htm
+FIND LATEST PRICE OF ETF DCVFMVN30 (HOSE: E1VFVN30) BASE ON https://finance.vietstock.vn/E1VFVN30-quy-etf-dcvfmvn30.htm?{{random_text}}
 RETURN FOUND PRICE AS JSON FORMAT: { "price": number }
 NOTE: 
 - Return JSON only, DO NOT EXPLAIN ANYTHING.

@@ -1,5 +1,5 @@
-Hãy truy cập vào trang web: https://cafef.vn/du-lieu/hose/e1vfvn30-quy-etf-vfmvn30.chn. Tìm giá khớp lệnh (giá hiện tại) của chứng chỉ quỹ E1VFVN30 đang được niêm yết trên bảng giá. Sau khi lấy được giá, hãy trả về kết quả duy nhất dưới định dạng JSON như sau:
-{
-"price": [giá_tìm_được]
-}
-Lưu ý: Chỉ trả về mã JSON, không giải thích gì thêm.
+FIND LATEST PRICE OF ETF DCVFMVN30 (HOSE: E1VFVN30) BASE ON https://finance.vietstock.vn/E1VFVN30-quy-etf-dcvfmvn30.htm?{{random_text}}
+RETURN FOUND PRICE AS JSON FORMAT: { "price": number }
+NOTE: 
+- Return JSON only, DO NOT EXPLAIN ANYTHING.
+- RETURN VALUE IS number, NOT CONTAINS CURRENCY AND FORMATTED VALUE

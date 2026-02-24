@@ -72,7 +72,13 @@ export class GeminiService implements OnModuleInit {
   async getCertificatePrice(): Promise<FundPriceResponse> {
     this.assertReady();
     try {
-      const prompts = this.loadPromptTemplate('price-prompt.txt');
+      let prompts = this.loadPromptTemplate('price-prompt.txt');
+      if (prompts) {
+        prompts = prompts.replace(
+          '{{random_text}}',
+          new Date().getTime().toString(),
+        );
+      }
       const response = await this.genAIClient!.models.generateContent({
         model: this.models[randomInt(0, this.models.length)],
         contents: [{ text: prompts ?? '' }],

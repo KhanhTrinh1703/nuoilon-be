@@ -1,4 +1,5 @@
-Hãy truy cập vào trang web: https://finance.vietstock.vn/E1VFVN30-quy-etf-dcvfmvn30.htm
-Tìm giá "Đang giao dịch" của chứng chỉ quỹ E1VFVN30 hôm nay. 
-Sau khi lấy được giá, hãy trả về kết quả duy nhất dưới định dạng JSON như sau: { "price": number }
-Lưu ý: Chỉ trả về mã JSON, không giải thích gì thêm.
+FIND LATEST PRICE OF ETF DCVFMVN30 (HOSE: E1VFVN30) BASE ON https://finance.vietstock.vn/E1VFVN30-quy-etf-dcvfmvn30.htm?{{random_text}}
+RETURN FOUND PRICE AS JSON FORMAT: { "price": number }
+NOTE: 
+- Return JSON only, DO NOT EXPLAIN ANYTHING.
+- RETURN VALUE IS number, NOT CONTAINS CURRENCY AND FORMATTED VALUE

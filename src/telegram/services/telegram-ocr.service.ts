@@ -309,6 +309,7 @@ export class TelegramOcrService {
 
       const transactionSourceId = `ocr_${job.id}`;
       let transactionRecordId: string;
+      let appscriptPayload: Record<string, unknown>;
       const transactionDate = format(new Date(), 'yyyy-MM-dd');
 
       if (transactionType === 'deposit') {
@@ -324,6 +325,11 @@ export class TelegramOcrService {
         });
 
         transactionRecordId = saved.id;
+        appscriptPayload = {
+          transactionDate,
+          capital: amount,
+          transactionId: transactionSourceId,
+        };
       } else {
         const numberOfCertificates = this.parseRequiredNumber(
           resultJson.matched_quantity,
@@ -345,12 +351,23 @@ export class TelegramOcrService {
         );
 
         transactionRecordId = saved.id;
+        appscriptPayload = {
+          transactionDate,
+          numberOfCertificates,
+          price,
+          transactionId: transactionSourceId,
+        };
       }
 
       await this.ocrJobRepository.markConfirmed(
         job.id,
         transactionRecordId,
         new Date(),
+      );
+
+      void this.publishConfirmedResultToAppScript(
+        transactionType,
+        appscriptPayload,
       );
 
       await this.editDecisionMessage(
@@ -732,5 +749,22 @@ export class TelegramOcrService {
     const fileTypeResult = await fileTypeFromBuffer(buffer);
     const mimeType = fileTypeResult?.mime ?? 'image/jpeg';
     return { buffer, mimeType };
+  }
+
+  private async publishConfirmedResultToAppScript(
+    transactionType: 'deposit' | 'certificate',
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await this.telegramQstashService.publishOcrResultToAppScript(
+        transactionType,
+        payload as never,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish confirmed OCR result to AppScript: ${(error as Error).message}`,
+        error,
+      );
+    }
   }
 }

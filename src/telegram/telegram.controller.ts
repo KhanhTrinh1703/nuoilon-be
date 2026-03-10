@@ -33,6 +33,7 @@ import { OcrResultCallbackDto } from './dto/ocr-result-callback.dto';
 import { OcrResultResponseDto } from './dto/ocr-result-response.dto';
 import { OcrErrorCallbackDto } from './dto/ocr-error-callback.dto';
 import { PublishOcrJobDto } from './dto/publish-ocr-job-dto';
+import { TestPublishAppscriptDto } from './dto/test-publish-appscript.dto';
 import { TelegramQstashService } from './services/telegram-qstash.service';
 import { GeminiService } from '../common/services/ai/gemini.service';
 import type { Update } from 'telegraf/types';
@@ -265,5 +266,37 @@ export class TelegramController {
     // For testing purposes, you can load a sample image from disk or use a predefined buffer
     const res = await this.geminiOcrService.getCertificatePrice();
     this.logger.log(`Gemini OCR test result: ${JSON.stringify(res)}`);
+  }
+
+  @Post('test-publish-appscript')
+  @UseGuards(DisableInProductionGuard)
+  @ApiOperation({
+    summary: 'Test publishing OCR result to AppScript via QStash',
+    description:
+      'Manually trigger publishOcrResultToAppScript with a given payload. ' +
+      'Not available in production. Useful for verifying HMAC signing and QStash delivery.',
+  })
+  @ApiBody({ type: TestPublishAppscriptDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Payload published to QStash successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Invalid request body' })
+  @ApiResponse({ status: 503, description: 'Not available in production' })
+  async testPublishAppscript(
+    @Body() dto: TestPublishAppscriptDto,
+  ): Promise<{ success: boolean }> {
+    const { transactionType, ...data } = dto;
+    await this.telegramQstashService.publishOcrResultToAppScript(
+      transactionType,
+      data as never,
+    );
+    return { success: true };
   }
 }

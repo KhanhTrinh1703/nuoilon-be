@@ -29,19 +29,34 @@ export class UpstashQstashService {
     payload: unknown,
     options?: QstashSendOptions,
   ): Promise<void> {
+    await this.publish(`${this.serverEndpoint}${path}`, payload, options);
+  }
+
+  async sendToExternalUrl(
+    url: string,
+    payload: unknown,
+    options?: QstashSendOptions,
+  ): Promise<void> {
+    await this.publish(url, payload, options);
+  }
+
+  private async publish(
+    url: string,
+    payload: unknown,
+    options?: QstashSendOptions,
+  ): Promise<void> {
     if (!this.client) {
       this.logger.error('QStash client is not initialized');
       throw new Error('QStash not configured');
     }
 
-    const url = `${this.serverEndpoint}${path}`;
     this.logger.debug(
-      `Sending message to QStash: ${url} with payload ${JSON.stringify(payload)}`,
+      `Publishing message to QStash: ${url} with payload ${JSON.stringify(payload)}`,
     );
 
     try {
       await this.client.publishJSON({
-        url: url,
+        url,
         headers: {
           'Content-Type': 'application/json',
           ...(options?.headers ?? {}),

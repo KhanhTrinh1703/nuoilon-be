@@ -41,6 +41,9 @@ export default () => ({
     currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY,
     nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY,
   },
+  appscript: {
+    webAppUrl: process.env.APPSCRIPT_WEB_APP_URL,
+  },
   gemini: {
     apiKey: process.env.GEMINI_API_KEY,
     models: process.env.GEMINI_MODELS

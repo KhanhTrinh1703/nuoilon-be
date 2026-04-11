@@ -50,4 +50,9 @@ export default () => ({
     maxOutputTokens:
       parseInt(process.env.GEMINI_MAX_OUTPUT_TOKENS ?? '1024', 10) || 1024,
   },
+  crypto: {
+    binanceApiBaseUrl:
+      process.env.BINANCE_API_BASE_URL ||
+      'https://api.binance.com/api/v3/ticker/price',
+  },
 });

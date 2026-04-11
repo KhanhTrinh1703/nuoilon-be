@@ -162,3 +162,4 @@ npm run docs:serve
 - **Gemini API errors**: Verify `GEMINI_API_KEY` is valid and quota is not exceeded.
 - **Supabase upload fails**: Check `SUPABASE_SERVICE_ROLE_KEY` permissions and bucket exists.
 - **Docs generation fails**: Ensure DB is reachable because app context is fully bootstrapped.
+- Keep source code run commit

@@ -14,6 +14,7 @@ import { OcrResultCallbackDto } from '../dto/ocr-result-callback.dto';
 import { OcrResultResponseDto } from '../dto/ocr-result-response.dto';
 import { PublishOcrJobDto } from '../dto/publish-ocr-job-dto';
 import { GeminiService } from '../../common/services/ai/gemini.service';
+import { OcrService } from '../../common/services/ai/ocr.service';
 import { SupabaseStorageService } from '../../common/services/storage/supabase-storage.service';
 import { CertificateTransactionRepository } from '../repositories/certificate-transaction.repository';
 import { DepositTransactionRepository } from '../repositories/deposit-transaction.repository';
@@ -36,6 +37,7 @@ export class TelegramOcrService {
     private readonly certificateTransactionRepository: CertificateTransactionRepository,
     private readonly telegramQstashService: TelegramQstashService,
     private readonly geminiOcrService: GeminiService,
+    private readonly ocrService: OcrService,
     private readonly supabaseStorageService: SupabaseStorageService,
   ) {}
 
@@ -54,12 +56,15 @@ export class TelegramOcrService {
     const signedUrl = await this.getSignedUrlForImage(payload.idempotencyKey);
     const { buffer, mimeType } =
       await this.downloadImageFromSupabase(signedUrl);
-    const ocrResult = await this.geminiOcrService.performOcr(buffer, mimeType);
+    const { provider, model, resultJson } = await this.ocrService.performOcr(
+      buffer,
+      mimeType,
+    );
 
     await this.telegramQstashService.publishOcrResult(payload.jobId, {
-      provider: 'gemini',
-      model: 'gemini-2.0-flash',
-      resultJson: ocrResult as unknown as Record<string, unknown>,
+      provider,
+      model,
+      resultJson: resultJson as unknown as Record<string, unknown>,
     });
   }
 

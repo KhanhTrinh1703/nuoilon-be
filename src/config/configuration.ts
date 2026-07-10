@@ -40,7 +40,6 @@ export default () => ({
     baseUrl: process.env.LLM_PROVIDER_BASE_URL,
     apiKey: process.env.LLM_PROVIDER_API_KEY,
     model: process.env.LLM_PROVIDER_MODEL,
-    temperature: parseFloat(process.env.LLM_PROVIDER_TEMPERATURE ?? '0.0') || 0.0,
     maxOutputTokens:
       parseInt(process.env.LLM_PROVIDER_MAX_OUTPUT_TOKENS ?? '1024', 10) || 1024,
   },

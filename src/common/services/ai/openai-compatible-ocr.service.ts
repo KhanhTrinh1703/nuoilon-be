@@ -25,13 +25,10 @@ export class OpenAICompatibleOcrService implements OnModuleInit {
   private baseUrl: string | null = null;
   private apiKey: string | null = null;
   private model: string | null = null;
-  private readonly temperature: number;
   private readonly maxOutputTokens: number;
 
   constructor(private readonly configService: ConfigService) {
     this.ocrPromptTemplate = this.loadPromptTemplate('ocr-prompt.txt');
-    this.temperature =
-      this.configService.get<number>('llmProvider.temperature') ?? 0.0;
     this.maxOutputTokens =
       this.configService.get<number>('llmProvider.maxOutputTokens') ?? 1024;
   }
@@ -81,7 +78,6 @@ export class OpenAICompatibleOcrService implements OnModuleInit {
         {
           model: this.model,
           messages,
-          temperature: this.temperature,
           max_tokens: this.maxOutputTokens,
         },
         {

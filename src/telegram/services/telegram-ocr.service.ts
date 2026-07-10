@@ -64,7 +64,7 @@ export class TelegramOcrService {
     await this.telegramQstashService.publishOcrResult(payload.jobId, {
       provider,
       model,
-      resultJson: resultJson as unknown as Record<string, unknown>,
+      resultJson: resultJson,
     });
   }
 

@@ -41,7 +41,8 @@ export default () => ({
     apiKey: process.env.LLM_PROVIDER_API_KEY,
     model: process.env.LLM_PROVIDER_MODEL,
     maxOutputTokens:
-      parseInt(process.env.LLM_PROVIDER_MAX_OUTPUT_TOKENS ?? '1024', 10) || 1024,
+      parseInt(process.env.LLM_PROVIDER_MAX_OUTPUT_TOKENS ?? '1024', 10) ||
+      1024,
   },
   qstash: {
     url: process.env.QSTASH_URL,

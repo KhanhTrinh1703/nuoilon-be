@@ -62,7 +62,10 @@ export class CryptoPriceCrawlerService {
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await appendCrawlerLog('ERROR', `${target.name} crawl failed: ${message}`);
+      await appendCrawlerLog(
+        'ERROR',
+        `${target.name} crawl failed: ${message}`,
+      );
     }
   }
 }

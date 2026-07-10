@@ -11,6 +11,10 @@ import { FundPriceRepository } from './repositories/fund-price.repository';
     NestScheduleModule.forRoot(),
     TypeOrmModule.forFeature([FundPrice]),
   ],
-  providers: [FundPriceCrawlerService, CryptoPriceCrawlerService, FundPriceRepository],
+  providers: [
+    FundPriceCrawlerService,
+    CryptoPriceCrawlerService,
+    FundPriceRepository,
+  ],
 })
 export class ScheduleModule {}

@@ -25,6 +25,7 @@ import { TelegramCertificateService } from './services/telegram-certificate.serv
 import { TelegramPhotoService } from './services/telegram-photo.service';
 import { TelegramOcrService } from './services/telegram-ocr.service';
 import { TelegramQstashService } from './services/telegram-qstash.service';
+import { CryptoModule } from '../crypto/crypto.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { TelegramQstashService } from './services/telegram-qstash.service';
       MonthlyInvestmentReport,
     ]),
     ConfigModule,
+    CryptoModule,
   ],
   controllers: [TelegramController],
   providers: [

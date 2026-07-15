@@ -11,13 +11,14 @@ import configuration from './config/configuration';
 import { ReportModule } from './report/report.module';
 import { ScheduleModule } from './schedule/schedule.module';
 import { CommonServicesModule } from './common/services.module';
+import { CryptoModule } from './crypto/crypto.module';
 
 const appMode = process.env.APP_MODE ?? 'web';
 const isScheduleMode = appMode === 'schedule';
 
 const clientModules = isScheduleMode
   ? [ScheduleModule]
-  : [AppscriptsModule, TelegramModule, WebModule, ReportModule];
+  : [AppscriptsModule, TelegramModule, WebModule, ReportModule, CryptoModule];
 
 @Module({
   imports: [

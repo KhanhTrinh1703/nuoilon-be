@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "regions": ["sin1"],
   "builds": [
     {
       "src": "src/main.ts",
@@ -7,6 +8,10 @@
     }
   ],
   "routes": [
+    {
+      "src": "/favicon.ico",
+      "dest": "/public/favicon.ico"
+    },
     {
       "src": "/(.*)",
       "dest": "src/main.ts",

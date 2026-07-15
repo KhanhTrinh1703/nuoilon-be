@@ -35,6 +35,7 @@ import { OcrErrorCallbackDto } from './dto/ocr-error-callback.dto';
 import { PublishOcrJobDto } from './dto/publish-ocr-job-dto';
 import { TelegramQstashService } from './services/telegram-qstash.service';
 import { GeminiService } from '../common/services/ai/gemini.service';
+import { OpenAICompatibleOcrService } from '../common/services/ai/openai-compatible-ocr.service';
 import type { Update } from 'telegraf/types';
 import {
   IMAGE_FILE_ALLOWED_MIME_TYPES,
@@ -51,6 +52,7 @@ export class TelegramController {
     private readonly telegramService: TelegramService,
     private readonly telegramQstashService: TelegramQstashService,
     private readonly geminiOcrService: GeminiService,
+    private readonly llmOcrService: OpenAICompatibleOcrService,
   ) {}
 
   @Post('webhook')
@@ -265,5 +267,44 @@ export class TelegramController {
     // For testing purposes, you can load a sample image from disk or use a predefined buffer
     const res = await this.geminiOcrService.getCertificatePrice();
     this.logger.log(`Gemini OCR test result: ${JSON.stringify(res)}`);
+  }
+
+  @Post('test-llm-ocr')
+  @UseInterceptors(FileInterceptor('file'))
+  @UseGuards(DisableInProductionGuard)
+  @ApiOperation({
+    summary: 'Test LLM-provider OCR service',
+    description:
+      'Upload an image and run it through the configured OpenAI-compatible LLM OCR provider directly (bypasses the Gemini fallback). Not available in production.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Image file to run OCR on',
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  async testLlmOcr(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: IMAGE_FILE_MAX_SIZE_BYTES }),
+          new FileTypeValidator({
+            fileType: IMAGE_FILE_ALLOWED_MIME_TYPES.join('|'),
+          }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    const result = await this.llmOcrService.performOcr(
+      file.buffer,
+      file.mimetype,
+    );
+    this.logger.log(`LLM OCR test result: ${JSON.stringify(result)}`);
+    return result;
   }
 }

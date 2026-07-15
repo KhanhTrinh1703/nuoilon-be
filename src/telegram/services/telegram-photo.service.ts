@@ -106,8 +106,9 @@ export class TelegramPhotoService {
       });
 
       const buffer = Buffer.from(response.data);
-      const mimeType =
-        response.headers['content-type'] || 'application/octet-stream';
+      const mimeType = String(
+        response.headers['content-type'] || 'application/octet-stream',
+      );
       const ext = extname(fileLink.pathname || '') || '.jpg';
       const filename = `${formatTimestampForFileName(new Date())}_${userId}${ext}`;
 

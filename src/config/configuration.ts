@@ -34,6 +34,15 @@ export default () => ({
   },
   ocr: {
     maxAttempts: parseInt(process.env.OCR_MAX_ATTEMPTS ?? '2', 10) || 2,
+    provider: process.env.OCR_PROVIDER || 'gemini',
+  },
+  llmProvider: {
+    baseUrl: process.env.LLM_PROVIDER_BASE_URL,
+    apiKey: process.env.LLM_PROVIDER_API_KEY,
+    model: process.env.LLM_PROVIDER_MODEL,
+    maxOutputTokens:
+      parseInt(process.env.LLM_PROVIDER_MAX_OUTPUT_TOKENS ?? '1024', 10) ||
+      1024,
   },
   qstash: {
     url: process.env.QSTASH_URL,
@@ -49,5 +58,10 @@ export default () => ({
     temperature: parseFloat(process.env.GEMINI_TEMPERATURE ?? '0.0') || 0.0,
     maxOutputTokens:
       parseInt(process.env.GEMINI_MAX_OUTPUT_TOKENS ?? '1024', 10) || 1024,
+  },
+  crypto: {
+    binanceApiBaseUrl:
+      process.env.BINANCE_API_BASE_URL ||
+      'https://api.binance.com/api/v3/ticker/price',
   },
 });

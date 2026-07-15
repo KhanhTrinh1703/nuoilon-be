@@ -136,6 +136,11 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       await this.commandsService.handleReportsCommand(ctx);
     });
 
+    // /crypto command
+    this.bot.command('crypto', async (ctx: Context) => {
+      await this.commandsService.handleCryptoCommand(ctx);
+    });
+
     // /upload command
     this.bot.command('upload', async (ctx: Context) => {
       const userId = ctx.from?.id;

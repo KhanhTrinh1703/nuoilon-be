@@ -6,10 +6,11 @@ import { DepositTransactionRepository } from '../repositories/deposit-transactio
 import { CertificateTransactionRepository } from '../repositories/certificate-transaction.repository';
 import { TelegramConversationService } from './telegram-conversation.service';
 import { GeminiService } from 'src/common/services/ai/gemini.service';
+import { CryptoPriceService } from '../../crypto/crypto-price.service';
 
 /**
  * Service for handling basic Telegram bot commands
- * Handles: /hi, /reports, /cancel
+ * Handles: /hi, /reports, /cancel, /crypto
  */
 @Injectable()
 export class TelegramCommandsService {
@@ -21,6 +22,7 @@ export class TelegramCommandsService {
     private readonly certificateTransactionRepository: CertificateTransactionRepository,
     private readonly conversationService: TelegramConversationService,
     private readonly geminiService: GeminiService,
+    private readonly cryptoPriceService: CryptoPriceService,
   ) {}
 
   /**
@@ -29,6 +31,28 @@ export class TelegramCommandsService {
   async handleHiCommand(ctx: Context): Promise<void> {
     const greeting = await this.geminiService.greet();
     ctx.reply(greeting.message);
+  }
+
+  /**
+   * Handle /crypto command - List live crypto prices
+   */
+  async handleCryptoCommand(ctx: Context): Promise<void> {
+    try {
+      const prices = await this.cryptoPriceService.getAllPrices();
+      const lines = prices.map(
+        (p) =>
+          `*${p.name}*: $${p.price.toLocaleString('vi-VN', { maximumFractionDigits: 2 })}`,
+      );
+
+      await ctx.reply(`💰 *Giá Crypto hiện tại*\n\n${lines.join('\n')}`, {
+        parse_mode: 'Markdown',
+      });
+    } catch (error) {
+      this.logger.error('Error fetching crypto prices', error);
+      await ctx.reply(
+        '❌ Không thể lấy giá crypto lúc này. Vui lòng thử lại sau.',
+      );
+    }
   }
 
   /**

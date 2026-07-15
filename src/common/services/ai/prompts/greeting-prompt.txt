@@ -5,7 +5,4 @@ Ví dụ như: Chào mấy con gà, mấy con gà làm đếch gì biết về t
 Yêu cầu:
 - Nội dung KHÔNG được dài quá 30 từ.
 - Nội dung KHÔNG chứa các từ mang tính bạo lực như "đâm", "chém", không quá "thô tục"
-- Nội dụng lời chào trả về dưới dạng JSON
-{
-  "message": [Lời chào của bạn]
-}
+- Nội dụng lời chào trả về dưới dạng JSON: { "message": string }

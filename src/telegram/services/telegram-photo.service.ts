@@ -150,12 +150,23 @@ export class TelegramPhotoService {
       });
 
       // publish OCR job to Qstash
-      await this.telegramQstashService.publishOcrJob({
-        jobId: job.id,
-        idempotencyKey,
-        chatId,
-        userId,
-      });
+      try {
+        await this.telegramQstashService.publishOcrJob({
+          jobId: job.id,
+          idempotencyKey,
+          chatId,
+          userId,
+        });
+      } catch (publishError) {
+        // Do not leave the job PENDING forever when it could not be queued.
+        await this.ocrJobRepository.markFailed(
+          job.id,
+          publishError instanceof Error
+            ? publishError.message
+            : String(publishError),
+        );
+        throw publishError;
+      }
 
       await ctx.reply(`Ảnh đã được tải lên. Đang xử lý OCR...
         Tên file: ${filename}`);

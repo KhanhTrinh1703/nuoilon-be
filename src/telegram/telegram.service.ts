@@ -389,7 +389,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   }
 
   async startOcrJob(payload: PublishOcrJobDto): Promise<void> {
-    return this.telegramOcrService.startOcrJob(payload);
+    return this.telegramOcrService.startOcrJob(this.bot, payload);
   }
 
   /**

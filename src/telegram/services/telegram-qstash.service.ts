@@ -11,6 +11,8 @@ export class TelegramQstashService {
     await this.qstashService.sendMessage(
       '/api/v1/telegram/ocr-jobs/start',
       payload,
+      // The app owns retries (OcrJob.maxAttempts), so QStash must not retry.
+      { retry: 0 },
     );
   }
 

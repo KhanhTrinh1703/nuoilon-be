@@ -42,30 +42,55 @@ export class TelegramOcrService {
   ) {}
 
   /**
-   * Start OCR job by downloading image and processing with Gemini.
+   * Start OCR job by downloading image and processing with the configured OCR provider.
+   * Any failure is recorded on the job and either retried or reported to the user,
+   * so the QStash callback itself always succeeds once the failure is handled.
+   * @param bot Telegram bot instance.
    * @param payload OCR job payload containing jobId and idempotencyKey.
    * @returns void
    * @example
-   * await telegramOcrService.startOcrJob(payload);
+   * await telegramOcrService.startOcrJob(bot, payload);
    */
-  async startOcrJob(payload: PublishOcrJobDto): Promise<void> {
+  async startOcrJob(bot: Telegraf, payload: PublishOcrJobDto): Promise<void> {
     this.logger.debug(
       `Starting OCR job with payload: ${JSON.stringify(payload)}`,
     );
 
-    const signedUrl = await this.getSignedUrlForImage(payload.idempotencyKey);
-    const { buffer, mimeType } =
-      await this.downloadImageFromSupabase(signedUrl);
-    const { provider, model, resultJson } = await this.ocrService.performOcr(
-      buffer,
-      mimeType,
-    );
+    const job = await this.ocrJobRepository.findById(payload.jobId);
+    if (!job) {
+      this.logger.warn(`Skip OCR start, job not found: ${payload.jobId}`);
+      return;
+    }
 
-    await this.telegramQstashService.publishOcrResult(payload.jobId, {
-      provider,
-      model,
-      resultJson: resultJson,
-    });
+    if (job.status !== OcrJobStatus.PENDING) {
+      this.logger.warn(
+        `Skip OCR start, job is not pending: jobId=${job.id}, status=${job.status}`,
+      );
+      return;
+    }
+
+    try {
+      const signedUrl = await this.getSignedUrlForImage(payload.idempotencyKey);
+      const { buffer, mimeType } =
+        await this.downloadImageFromSupabase(signedUrl);
+      const { provider, model, resultJson } = await this.ocrService.performOcr(
+        buffer,
+        mimeType,
+      );
+
+      await this.telegramQstashService.publishOcrResult(payload.jobId, {
+        provider,
+        model,
+        resultJson: resultJson,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `OCR processing failed: jobId=${job.id}, error=${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      await this.processOcrFailure(bot, job.id, message);
+    }
   }
 
   /**
@@ -89,7 +114,8 @@ export class TelegramOcrService {
 
     if (
       job.status === OcrJobStatus.CONFIRMED ||
-      job.status === OcrJobStatus.REJECTED
+      job.status === OcrJobStatus.REJECTED ||
+      job.status === OcrJobStatus.FAILED
     ) {
       throw new BadRequestException('OCR job is already finalized');
     }
@@ -115,14 +141,25 @@ export class TelegramOcrService {
       );
     }
 
-    const sentMessage = await this.sendNeedConfirmMessage(
-      bot,
-      chatId,
-      updatedJob.id,
-      confirmToken,
-      dto.resultJson,
-      dto.warnings,
-    );
+    let sentMessage: Awaited<ReturnType<typeof this.sendNeedConfirmMessage>>;
+    try {
+      sentMessage = await this.sendNeedConfirmMessage(
+        bot,
+        chatId,
+        updatedJob.id,
+        confirmToken,
+        dto.resultJson,
+        dto.warnings,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to send OCR confirmation: jobId=${updatedJob.id}, error=${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      await this.failJob(bot, updatedJob, message);
+      throw error;
+    }
 
     await this.ocrJobRepository.updateSentMessageId(
       updatedJob.id,
@@ -176,6 +213,26 @@ export class TelegramOcrService {
       ? `[${dto.errorCode}] ${dto.errorMessage}`
       : dto.errorMessage;
 
+    return this.processOcrFailure(bot, jobId, composedError);
+  }
+
+  /**
+   * Record an OCR failure: schedule a retry while attempts remain,
+   * otherwise mark the job failed and notify the user.
+   */
+  private async processOcrFailure(
+    bot: Telegraf,
+    jobId: string,
+    composedError: string,
+  ): Promise<{
+    success: boolean;
+    jobId: string;
+    status: string;
+    attempts: number;
+    maxAttempts: number;
+    retried: boolean;
+    message: string;
+  }> {
     const incremented = await this.ocrJobRepository.incrementAttempts(jobId);
     if (!incremented) {
       throw new NotFoundException(
@@ -208,43 +265,26 @@ export class TelegramOcrService {
           chatId: Number(withError.tgChatId),
           userId: Number(withError.tgUserId),
         });
+
+        return {
+          success: true,
+          jobId: withError.id,
+          status: OcrJobStatus.PENDING,
+          attempts,
+          maxAttempts,
+          retried: true,
+          message: 'OCR retry scheduled',
+        };
       } catch (err) {
         this.logger.error(
           'Failed to republish OCR job for retry',
           err as Error,
         );
+        // Without a queued retry the job would stay PENDING forever, so fail it.
       }
-
-      return {
-        success: true,
-        jobId: withError.id,
-        status: OcrJobStatus.PENDING,
-        attempts,
-        maxAttempts,
-        retried: true,
-        message: 'OCR retry scheduled',
-      };
     }
 
-    const failedJob = await this.ocrJobRepository.markFailed(
-      jobId,
-      composedError,
-    );
-    if (!failedJob) {
-      throw new NotFoundException(
-        `OCR job not found after markFailed: ${jobId}`,
-      );
-    }
-
-    await this.sendErrorMessage(
-      bot,
-      Number(failedJob.tgChatId),
-      '❌ Không thể xử lý ảnh sau 2 lần thử. Vui lòng thử lại hoặc nhập thủ công.',
-    );
-
-    this.logger.error(
-      `OCR job failed permanently: jobId=${failedJob.id}, attempts=${attempts}/${maxAttempts}, error=${composedError}`,
-    );
+    const failedJob = await this.failJob(bot, withError, composedError);
 
     return {
       success: true,
@@ -253,8 +293,46 @@ export class TelegramOcrService {
       attempts,
       maxAttempts,
       retried: false,
-      message: `OCR failed after ${maxAttempts} attempts`,
+      message: `OCR failed after ${attempts} attempts`,
     };
+  }
+
+  /**
+   * Mark a job as permanently failed and tell the user (best effort).
+   */
+  private async failJob(
+    bot: Telegraf,
+    job: OcrJob,
+    composedError: string,
+  ): Promise<OcrJob> {
+    const failedJob = await this.ocrJobRepository.markFailed(
+      job.id,
+      composedError,
+    );
+    if (!failedJob) {
+      throw new NotFoundException(
+        `OCR job not found after markFailed: ${job.id}`,
+      );
+    }
+
+    this.logger.error(
+      `OCR job failed permanently: jobId=${failedJob.id}, attempts=${failedJob.attempts}/${failedJob.maxAttempts}, error=${composedError}`,
+    );
+
+    try {
+      await this.sendErrorMessage(
+        bot,
+        Number(failedJob.tgChatId),
+        '❌ Không thể xử lý ảnh. Vui lòng thử lại hoặc nhập thủ công bằng lệnh /input.',
+      );
+    } catch (err) {
+      this.logger.error(
+        `Failed to notify user about OCR failure: jobId=${failedJob.id}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+    }
+
+    return failedJob;
   }
 
   /**

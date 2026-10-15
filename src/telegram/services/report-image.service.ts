@@ -7,6 +7,7 @@ import { FundPriceRepository } from '../repositories/fund-price.repository';
 import { DepositTransactionRepository } from '../repositories/deposit-transaction.repository';
 import { CertificateTransactionRepository } from '../repositories/certificate-transaction.repository';
 import { MonthlyInvestmentReport } from '../../database/entities/monthly-investment-report.entity';
+import { formatMonthsDuration } from '../../common/utils/format-duration.util';
 
 interface ReportSummary {
   fundName: string;
@@ -287,7 +288,7 @@ export class ReportImageService {
       ),
       currentValueLabel: `${this.formatCurrency(summary.currentValue)} VNĐ`,
       navLabel: `${this.formatCurrency(summary.navPrice)} VNĐ`,
-      monthsLabel: summary.months ? `${summary.months} tháng` : '0 tháng',
+      monthsLabel: formatMonthsDuration(summary.months),
       profitRatioLabel: `${profitPositive ? '+' : ''}${summary.profitRatio.toFixed(2)}%`,
       profitDescription: profitPositive
         ? 'Hiệu suất đầu tư tích cực'
@@ -434,7 +435,7 @@ export class ReportImageService {
     const emoji = summary.profitValue >= 0 ? '📈' : '📉';
     return `${emoji} Báo cáo ${summary.fundName} — Giá trị hiện tại: ${this.formatCurrency(
       Math.round(summary.currentValue),
-    )} VNĐ (${summary.months} tháng)`;
+    )} VNĐ (${formatMonthsDuration(summary.months)})`;
   }
 
   private formatCurrency(value: number): string {

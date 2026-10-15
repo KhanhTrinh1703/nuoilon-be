@@ -6,6 +6,7 @@ import { DepositTransactionRepository } from '../repositories/deposit-transactio
 import { CertificateTransactionRepository } from '../repositories/certificate-transaction.repository';
 import { TelegramConversationService } from './telegram-conversation.service';
 import { GeminiService } from 'src/common/services/ai/gemini.service';
+import { formatMonthsDuration } from '../../common/utils/format-duration.util';
 import { CryptoPriceService } from '../../crypto/crypto-price.service';
 
 /**
@@ -116,7 +117,7 @@ export class TelegramCommandsService {
 
       const message =
         `📊 *BÁO CÁO QUỸ ĐẦU TƯ E1VFVN30*\n\n` +
-        `- *Thời gian đầu tư:* ${investmentMonths} tháng \n` +
+        `- *Thời gian đầu tư:* ${formatMonthsDuration(investmentMonths)} \n` +
         `- *Tổng vốn:* ${formatNumber(totalCapital)} VNĐ\n` +
         `- *Giá trị NAV:* ${formatNumber(navValue)} VNĐ\n` +
         `- *Số CCQ:* ${formatNumber(fundCertificates)}\n` +

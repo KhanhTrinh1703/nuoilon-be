@@ -7,7 +7,7 @@ import { FundPriceRepository } from '../repositories/fund-price.repository';
 import { DepositTransactionRepository } from '../repositories/deposit-transaction.repository';
 import { CertificateTransactionRepository } from '../repositories/certificate-transaction.repository';
 import { MonthlyInvestmentReport } from '../../database/entities/monthly-investment-report.entity';
-import { formatMonthsDuration } from 'src/common/utils/format-duration.util';
+import { formatMonthsDuration } from '../../common/utils/format-duration.util';
 
 interface ReportSummary {
   fundName: string;

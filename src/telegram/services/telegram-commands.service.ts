@@ -6,7 +6,7 @@ import { DepositTransactionRepository } from '../repositories/deposit-transactio
 import { CertificateTransactionRepository } from '../repositories/certificate-transaction.repository';
 import { TelegramConversationService } from './telegram-conversation.service';
 import { GeminiService } from 'src/common/services/ai/gemini.service';
-import { formatMonthsDuration } from 'src/common/utils/format-duration.util';
+import { formatMonthsDuration } from '../../common/utils/format-duration.util';
 import { CryptoPriceService } from '../../crypto/crypto-price.service';
 
 /**

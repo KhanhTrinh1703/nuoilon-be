@@ -1,0 +1,27 @@
+# CODEOWNERS - các vùng agent không được tự merge nếu chưa có người duyệt.
+# Dòng khớp sau cùng sẽ thắng. Không dùng "*" để tránh chặn auto-merge task risk:low.
+
+# --- Luật chơi của factory: agent không được tự sửa ---
+/.github/**                           @KhanhTrinh1703
+/AGENTS.md                            @KhanhTrinh1703
+/GEMINI.md                            @KhanhTrinh1703
+/.gemini/**                           @KhanhTrinh1703
+/.claude/**                           @KhanhTrinh1703
+
+# --- Vùng nhạy cảm: auth, dữ liệu, bí mật ---
+/src/common/guards/**                 @KhanhTrinh1703
+/src/common/middleware/**             @KhanhTrinh1703
+/src/database/migrations/**           @KhanhTrinh1703
+/src/database/entities/**             @KhanhTrinh1703
+/src/database/data-source.ts          @KhanhTrinh1703
+/src/config/**                        @KhanhTrinh1703
+/.env.example                         @KhanhTrinh1703
+
+# --- Hạ tầng, build, phụ thuộc ---
+/docker/**                            @KhanhTrinh1703
+/vercel.json                          @KhanhTrinh1703
+/package.json                         @KhanhTrinh1703
+/package-lock.json                    @KhanhTrinh1703
+/eslint.config.mjs                    @KhanhTrinh1703
+/tsconfig*.json                       @KhanhTrinh1703
+/nest-cli.json                        @KhanhTrinh1703

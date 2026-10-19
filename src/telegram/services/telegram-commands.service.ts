@@ -5,7 +5,7 @@ import { FundPriceRepository } from '../repositories/fund-price.repository';
 import { DepositTransactionRepository } from '../repositories/deposit-transaction.repository';
 import { CertificateTransactionRepository } from '../repositories/certificate-transaction.repository';
 import { TelegramConversationService } from './telegram-conversation.service';
-import { GeminiService } from 'src/common/services/ai/gemini.service';
+import { GeminiService } from '../../common/services/ai/gemini.service';
 import { formatMonthsDuration } from '../../common/utils/format-duration.util';
 import { CryptoPriceService } from '../../crypto/crypto-price.service';
 

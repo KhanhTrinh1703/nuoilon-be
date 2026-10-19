@@ -95,12 +95,12 @@ Edit the HTML files in `docs/` to match your branding.
 ## 🎯 Features by Client
 
 ### 🌐 Web Client
-- Bearer Authentication
+- Upstash QStash signature (Upstash-Signature header) on the crawl trigger
 - Web-specific endpoints
 - Dedicated documentation section
 
 ### 💬 Telegram Bot
-- Bearer Authentication
+- Webhook handled by Telegraf; OCR callbacks protected by Upstash or HMAC signatures
 - Telegram webhook endpoints
 - Separate documentation view
 
@@ -117,7 +117,8 @@ Edit the HTML files in `docs/` to match your branding.
 
 ## 🔐 Security
 
-- Web & Telegram: Bearer token authentication
+- QStash callbacks: Upstash signature via Upstash-Signature header
+- Dev/test endpoints: DisableInProductionGuard (404 in production)
 - AppScript: HMAC signature validation via X-Signature header
 - All authentication methods documented in Swagger UI
 

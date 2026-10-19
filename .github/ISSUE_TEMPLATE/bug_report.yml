@@ -1,0 +1,94 @@
+name: 🐛 Bug Report
+description: Create a report to help us fix a bug or issue in nuoilon-be
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please fill out the information below to help us diagnose and fix the issue.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      description: Which module or component is affected?
+      options:
+        - Telegram Bot
+        - Web API
+        - OCR Pipeline (Gemini / QStash)
+        - Schedule / Crawlers
+        - Crypto Service
+        - Google Apps Script Sync
+        - Database / Migrations
+        - CI/CD / Deployment
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: app-mode
+    attributes:
+      label: App Mode
+      description: Under which APP_MODE did this occur?
+      options:
+        - web
+        - schedule
+        - Both / Not Sure
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe what happened...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the issue.
+      placeholder: |
+        1. Call endpoint 'POST /api/v1/...' or trigger command '...'
+        2. With payload or input '...'
+        3. Observe error response '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Error Traces / Screenshots
+      description: Relevant application logs, error traces, or screenshots.
+      render: shell
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment Info
+      description: Node version, OS, deployment target (Vercel, Docker, Local), etc.
+      placeholder: "Node 20, Docker (schedule container) / Vercel"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate.
+          required: true
+        - label: I have checked the logs and error output for relevant details.
+          required: false

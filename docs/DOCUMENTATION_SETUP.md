@@ -177,13 +177,14 @@ export class CreateUserDto {
 
 For endpoints requiring authentication:
 
-**Bearer Token** (Web & Telegram):
+**Upstash Signature** (QStash callbacks):
 ```typescript
-import { ApiBearerAuth } from '@nestjs/swagger';
+import { ApiSecurity } from '@nestjs/swagger';
 
-@ApiBearerAuth()
-@Get('profile')
-async getProfile() {
+@ApiSecurity('Upstash-Signature')
+@UseGuards(UpstashSignatureGuard)
+@Post('ocr-jobs/start')
+async startOcrJob() {
   // Implementation
 }
 ```
@@ -201,9 +202,10 @@ async uploadData() {
 
 ## 🔐 Authentication Setup
 
-### Web & Telegram Clients
-- **Type**: Bearer Token
-- **Header**: `Authorization: Bearer <token>`
+### QStash Callbacks (Web & Telegram)
+- **Type**: Upstash signature
+- **Header**: `Upstash-Signature: <jwt>`
+- Protected by `UpstashSignatureGuard`
 
 ### AppScript Client
 - **Type**: HMAC Signature

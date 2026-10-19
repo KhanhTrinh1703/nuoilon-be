@@ -1,0 +1,49 @@
+name: 🛠️ Task / Maintenance
+description: Technical task, refactoring, dependency update, or maintenance work
+title: "[Task]: "
+labels: ["chore"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for internal technical tasks, refactoring, or maintenance work.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Task Category
+      options:
+        - Refactoring / Code Cleanup
+        - Dependency Updates
+        - Performance & Optimization
+        - Documentation
+        - Testing & CI/CD
+        - Database / Migrations
+        - Security
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Detailed description of the task to be performed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation & Scope
+      description: Why is this work needed, and what components are affected?
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria / Todo
+      description: Checklist of things that need to be completed.
+      placeholder: |
+        - [ ] Implementation completed
+        - [ ] Unit & E2E tests pass
+        - [ ] Documentation updated (if applicable)

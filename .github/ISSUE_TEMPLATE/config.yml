@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: nuoilon-be Documentation
+    url: https://github.com/KhanhTrinh1703/nuoilon-be#readme
+    about: Please check the project README and documentation before creating an issue.

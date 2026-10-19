@@ -1,0 +1,56 @@
+name: ✨ Feature Request
+description: Propose a new feature, improvement, or idea for nuoilon-be
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a feature! Please provide as much detail as possible.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Target Component
+      description: Which part of the application does this feature request target?
+      options:
+        - Telegram Bot
+        - Web API
+        - OCR Pipeline (Gemini / QStash)
+        - Schedule / Crawlers
+        - Crypto Service
+        - Google Apps Script Sync
+        - Database / Migrations
+        - CI/CD / Infrastructure
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Motivation
+      description: Is this feature related to a problem or limitation? Please describe.
+      placeholder: A clear description of the problem or limitation you are trying to solve.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution / Design
+      description: A clear description of what you want to happen and how it should work.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or workarounds you have considered.
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, API schemas, Telegram command ideas, or screenshots here.

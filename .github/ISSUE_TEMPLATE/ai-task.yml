@@ -1,0 +1,110 @@
+name: 🤖 AI Task
+description: Giao một việc có cấu trúc cho dev hoặc AI agent (bug, feature, refactor, docs, test)
+title: "[AI Task]: "
+# Không khai báo labels ở đây. Label `ai-handle` (kích hoạt agent) chỉ do maintainer
+# gắn thủ công sau khi đọc issue, vì label khai báo trong form được áp dụng bất kể
+# người tạo issue có quyền hay không.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Mô tả càng cụ thể và kiểm chứng được càng tốt. Agent chỉ làm đúng những gì ghi ở đây.
+        **Không dán secret, token hay dữ liệu cá nhân vào issue.**
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Task Type
+      options:
+        - Bug fix
+        - New feature / improvement
+        - Refactor / cleanup
+        - Tests / CI
+        - Documentation
+        - Dependency update
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      options:
+        - Telegram Bot
+        - Web API
+        - OCR Pipeline (Gemini / QStash)
+        - Schedule / Crawlers
+        - Crypto Service
+        - Google Apps Script Sync
+        - Database / Migrations
+        - CI/CD / Deployment
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Vấn đề hoặc nhu cầu là gì? Vì sao cần làm?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Bằng chứng để agent tái hiện hoặc hiểu bối cảnh, như log lỗi, endpoint, payload mẫu, bước tái hiện, link file liên quan.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: Kết quả mong muốn sau khi xong.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Danh sách điều kiện kiểm chứng được bằng máy (test, lint, kết quả response). Mơ hồ ở đây thì agent sẽ dừng và hỏi lại.
+      placeholder: |
+        - [ ] POST /web/... với payload X trả về 400 và message Y
+        - [ ] Có unit test cho trường hợp lỗi
+        - [ ] `npm run lint`, `npm run typecheck`, `npm test` đều xanh
+    validations:
+      required: true
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+      description: Những điều KHÔNG được làm hoặc file/thư mục không được đụng vào (ví dụ không sửa migration, không đổi API công khai, không thêm dependency).
+    validations:
+      required: false
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk (ước tính ban đầu)
+      description: Mức rủi ro cuối cùng do review quyết định. Không chắc thì chọn mục cuối, sẽ được xử lý như high.
+      options:
+        - low - DTO/validation, docs, test, util nhỏ
+        - medium - endpoint mới, logic nghiệp vụ
+        - high - auth/guard, migration, config, secret, hạ tầng
+        - Không chắc (xử lý như high)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: Issue không chứa secret, token hoặc dữ liệu cá nhân.
+          required: true
+        - label: Đã tìm issue hiện có để chắc chắn không trùng.
+          required: true

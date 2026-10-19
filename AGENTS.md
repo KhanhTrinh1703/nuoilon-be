@@ -126,7 +126,7 @@ The schedule container runs independently (see [docker/Dockerfile.schedule](dock
 ## Testing
 
 - Unit tests colocated as `*.spec.ts` alongside source files
-- E2E tests in `test/app.e2e-spec.ts`
+- E2E tests in `test/*.e2e-spec.ts` — boundary tests (auth guards, webhooks) that build a test module with only the controller under test and mocked services; never import `AppModule` (it needs a real DB and external services)
 - Jest config is embedded in `package.json` (`jest` key)
 - E2E config: `test/jest-e2e.json`
 

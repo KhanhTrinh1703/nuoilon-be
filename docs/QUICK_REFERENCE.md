@@ -27,10 +27,9 @@ npm run docs:serve
 ### Controller Level
 ```typescript
 import { Controller } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiSecurity } from '@nestjs/swagger';
+import { ApiTags, ApiSecurity } from '@nestjs/swagger';
 
 @ApiTags('tag-name')        // Group endpoints by tag
-@ApiBearerAuth()             // Require Bearer token
 @ApiSecurity('HMAC-Signature') // Require HMAC signature
 @Controller('path')
 export class MyController {}
@@ -70,11 +69,12 @@ export class MyDto {
 
 ## 🔐 Authentication
 
-### Bearer Token (Web & Telegram)
+### Upstash Signature (QStash callbacks)
 ```typescript
-@ApiBearerAuth()
+@ApiSecurity('Upstash-Signature')
+@UseGuards(UpstashSignatureGuard)
 ```
-**Header**: `Authorization: Bearer <token>`
+**Header**: `Upstash-Signature: <jwt>`
 
 ### HMAC Signature (AppScript)
 ```typescript
@@ -105,8 +105,8 @@ Replace `[username]` with your GitHub username:
 
 | Client | Tag | Authentication |
 |--------|-----|----------------|
-| Web | `@ApiTags('web')` | Bearer Token |
-| Telegram | `@ApiTags('telegram')` | Bearer Token |
+| Web | `@ApiTags('web')` | Upstash Signature |
+| Telegram | `@ApiTags('telegram')` | Telegraf webhook; Upstash / HMAC on OCR callbacks |
 | AppScript | `@ApiTags('appscripts')` | HMAC Signature |
 
 ## 📊 Response Status Codes

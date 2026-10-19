@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { GeminiService } from 'src/common/services/ai/gemini.service';
+import { GeminiService } from '../common/services/ai/gemini.service';
 import { FundPriceRepository } from './repositories/fund-price.repository';
-import { FundPrice } from 'src/database/entities/fund-price.entity';
+import { FundPrice } from '../database/entities/fund-price.entity';
 
 @Injectable()
 export class WebService {

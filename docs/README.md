@@ -73,9 +73,9 @@ Once deployed, you can access the documentation at:
 
 ## 🔐 Authentication
 
-### Web & Telegram Clients
-- Use **Bearer Token** authentication
-- Add `Authorization: Bearer <token>` header to requests
+### QStash Callbacks (Web & Telegram)
+- Use **Upstash signature** authentication
+- QStash sends the `Upstash-Signature` header; validated by `UpstashSignatureGuard`
 
 ### AppScript Client
 - Uses **HMAC Signature** authentication

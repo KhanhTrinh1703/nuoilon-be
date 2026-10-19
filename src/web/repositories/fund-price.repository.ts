@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { FundPrice } from 'src/database/entities/fund-price.entity';
+import { FundPrice } from '../../database/entities/fund-price.entity';
 import { DataSource, Repository } from 'typeorm';
 
 @Injectable()

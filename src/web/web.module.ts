@@ -5,7 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { WebController } from './web.controller';
 import { WebService } from './web.service';
 import { FundPriceRepository } from './repositories/fund-price.repository';
-import { FundPrice } from 'src/database/entities/fund-price.entity';
+import { FundPrice } from '../database/entities/fund-price.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([FundPrice]), ConfigModule],

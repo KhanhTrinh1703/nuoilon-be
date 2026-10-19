@@ -10,7 +10,7 @@ Nuoilon is a multi-client NestJS 11 backend for fund transaction tracking, repor
 ## Features
 - Multi-client modules with isolated Swagger documentation for each surface.
 - Google Apps Script integration for bidirectional sync between Google Spreadsheets and PostgreSQL database with HMAC-authenticated endpoints.
-- Telegram bot commands `/hi`, `/reports`, `/upload`, `/input` with Vietnamese responses.
+- Telegram bot commands `/hi`, `/reports`, `/crypto`, `/upload`, `/report_image`, `/input`, `/cancel` with Vietnamese responses.
 - Asynchronous OCR pipeline using Upstash QStash for job queuing and Google Gemini AI for processing.
 - AI-powered document extraction from Vietnamese financial documents using Gemini API.
 - Supabase Storage integration for secure image upload and management with signed URLs.

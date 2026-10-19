@@ -1,0 +1,110 @@
+name: 🤖 AI Task
+description: Assign a structured task to a developer or AI agent (bug, feature, refactor, docs, test)
+title: "[AI Task]: "
+# Do not declare `labels` here. The `ai-handle` label (which triggers the agent) must only
+# be added manually by a maintainer after reading the issue, because labels declared in an
+# issue form are applied regardless of whether the author has permission to add labels.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Be as specific and verifiable as possible. The agent will only do what is written here.
+        **Do not paste secrets, tokens, or personal data into this issue.**
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Task Type
+      options:
+        - Bug fix
+        - New feature / improvement
+        - Refactor / cleanup
+        - Tests / CI
+        - Documentation
+        - Dependency update
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      options:
+        - Telegram Bot
+        - Web API
+        - OCR Pipeline (Gemini / QStash)
+        - Schedule / Crawlers
+        - Crypto Service
+        - Google Apps Script Sync
+        - Database / Migrations
+        - CI/CD / Deployment
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is the problem or need? Why does it matter?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Anything that lets the agent reproduce the problem or understand the context, such as error logs, endpoints, sample payloads, reproduction steps, or links to relevant files.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: The desired outcome once the task is done.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: A list of conditions that can be verified by machine (tests, lint, response results). If this is vague, the agent will stop and ask for clarification.
+      placeholder: |
+        - [ ] POST /web/... with payload X returns 400 and message Y
+        - [ ] Unit test added for the error case
+        - [ ] `npm run lint`, `npm run typecheck`, and `npm test` all pass
+    validations:
+      required: true
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+      description: Things that must NOT be done, or files/directories that must not be touched (for example, do not edit migrations, do not change the public API, do not add dependencies).
+    validations:
+      required: false
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk (initial estimate)
+      description: The final risk level is decided during review. If unsure, choose the last option; it will be treated as high.
+      options:
+        - low - DTO/validation, docs, tests, small utilities
+        - medium - new endpoint, business logic
+        - high - auth/guards, migrations, config, secrets, infrastructure
+        - Not sure (treated as high)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: This issue contains no secrets, tokens, or personal data.
+          required: true
+        - label: I searched existing issues to make sure this is not a duplicate.
+          required: true

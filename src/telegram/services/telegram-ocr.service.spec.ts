@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Telegraf } from 'telegraf';
 import { OcrJob, OcrJobStatus } from '../../database/entities/ocr-job.entity';
 import { TelegramOcrService } from './telegram-ocr.service';
@@ -29,6 +30,29 @@ describe('TelegramOcrService.startOcrJob', () => {
   let ocrService: { performOcr: jest.Mock };
   let bot: { telegram: { sendMessage: jest.Mock } };
 
+  const fakeOcrResult = {
+    provider: 'gemini' as const,
+    model: 'gemini-1.5-flash',
+    resultJson: {
+      type: 'deposit' as const,
+      amount: 1000000,
+      currency: 'VND',
+      confidence: 0.99,
+    },
+  };
+
+  beforeAll(() => {
+    jest.spyOn(Logger.prototype, 'log').mockImplementation();
+    jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    jest.spyOn(Logger.prototype, 'debug').mockImplementation();
+    jest.spyOn(Logger.prototype, 'verbose').mockImplementation();
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeEach(() => {
     jobRepo = {
       findById: jest.fn().mockResolvedValue(makeJob()),
@@ -42,7 +66,7 @@ describe('TelegramOcrService.startOcrJob', () => {
       publishOcrResult: jest.fn().mockResolvedValue(undefined),
     };
     ocrService = {
-      performOcr: jest.fn().mockRejectedValue(new Error('provider down')),
+      performOcr: jest.fn().mockResolvedValue(fakeOcrResult),
     };
     bot = { telegram: { sendMessage: jest.fn().mockResolvedValue({}) } };
 
@@ -71,6 +95,7 @@ describe('TelegramOcrService.startOcrJob', () => {
   const run = () => service.startOcrJob(bot as unknown as Telegraf, payload);
 
   it('retries when OCR fails and attempts remain', async () => {
+    ocrService.performOcr.mockRejectedValue(new Error('provider down'));
     jobRepo.incrementAttempts.mockResolvedValue(makeJob({ attempts: 1 }));
     jobRepo.updateLastError.mockResolvedValue(makeJob({ attempts: 1 }));
 
@@ -90,6 +115,7 @@ describe('TelegramOcrService.startOcrJob', () => {
   });
 
   it('marks the job failed and notifies the user when attempts are exhausted', async () => {
+    ocrService.performOcr.mockRejectedValue(new Error('provider down'));
     const exhausted = makeJob({ attempts: 2 });
     jobRepo.incrementAttempts.mockResolvedValue(exhausted);
     jobRepo.updateLastError.mockResolvedValue(exhausted);
@@ -109,6 +135,7 @@ describe('TelegramOcrService.startOcrJob', () => {
   });
 
   it('fails the job when the retry cannot be republished', async () => {
+    ocrService.performOcr.mockRejectedValue(new Error('provider down'));
     const first = makeJob({ attempts: 1 });
     jobRepo.incrementAttempts.mockResolvedValue(first);
     jobRepo.updateLastError.mockResolvedValue(first);
@@ -125,6 +152,7 @@ describe('TelegramOcrService.startOcrJob', () => {
   });
 
   it('still resolves when notifying the user fails', async () => {
+    ocrService.performOcr.mockRejectedValue(new Error('provider down'));
     const exhausted = makeJob({ attempts: 2 });
     jobRepo.incrementAttempts.mockResolvedValue(exhausted);
     jobRepo.updateLastError.mockResolvedValue(exhausted);
@@ -146,19 +174,12 @@ describe('TelegramOcrService.startOcrJob', () => {
   });
 
   it('publishes the result on success without touching attempts', async () => {
-    ocrService.performOcr.mockResolvedValue({
-      provider: 'gemini',
-      model: 'm',
-      resultJson: { type: 'deposit' },
-    });
-
     await run();
 
-    expect(qstash.publishOcrResult).toHaveBeenCalledWith('job-1', {
-      provider: 'gemini',
-      model: 'm',
-      resultJson: { type: 'deposit' },
-    });
+    expect(qstash.publishOcrResult).toHaveBeenCalledWith(
+      'job-1',
+      fakeOcrResult,
+    );
     expect(jobRepo.incrementAttempts).not.toHaveBeenCalled();
   });
 });
